@@ -1,0 +1,40 @@
+# Yuzu harness
+
+Yuzu is a Mac app. The harness is the coding agent. Uzu is the model runtime inside it. SwiftUI is a client of harness events and never calls uzu itself.
+
+The shape comes from [OpenCode](https://github.com/anomalyco/opencode) (`anomalyco/opencode`, MIT), read from `packages/core`. We reimplement those boundaries in Swift. We do not port the TypeScript. Claude Code’s repository does not contain its CLI, so it is not a source.
+
+## Read this order
+
+1. [Shape](01-shape.md) — processes, modules, what is durable
+2. [Session loop](02-session-loop.md) — admit, drain, provider turn, idle
+3. [Context](03-context.md) — baseline, sources, epoch, compaction
+4. [Tools](04-tools.md) — registry, builtins, output limits
+5. [Permissions](05-permissions.md) — rules, ask, once / always / reject
+6. [Skills](06-skills.md) — discovery, guidance in context, the skill tool
+7. [MCP](07-mcp.md) — servers, tools, prompts, resources, auth
+8. [Agents](08-agents.md) — build, plan, subagents
+9. [Uzu boundary](09-uzu-boundary.md) — the only file that talks about the engine
+10. [Client](10-client.md) — events the UI is allowed to see
+11. [Build order](11-build-order.md) — how the complete harness is sliced into working apps
+
+## Module map
+
+```text
+App
+  Models          catalog, download, one loaded model
+  Transcript      SwiftUI client
+Harness
+  Session         admission, drain, history
+  Context         sources, epoch, compaction
+  Tools           registry and builtins
+  Permission      rules and pending asks
+  Skills          sources plus the skill tool
+  MCP             out-of-process servers
+  Agents          permission sets and step limits
+  Store           SQLite
+Model
+  UzuTurn         Engine, one ChatInstance, turn cache
+```
+
+`Harness` can call `Model`. `App` can call `Harness`. `Model` cannot call `Harness`.
