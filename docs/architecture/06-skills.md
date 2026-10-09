@@ -10,6 +10,8 @@ A source is one of:
 - **url** — downloaded into the app support skill cache, then treated as a directory
 - **embedded** — markdown compiled into the app
 
+The Customize screen labels embedded skills **From Yuzu** and project or user skills **From you**. See [UI](12-ui.md).
+
 Shipped directories, if they exist:
 
 - `<project>/.yuzu/skills/`

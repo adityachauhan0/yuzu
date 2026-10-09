@@ -26,13 +26,9 @@ Streaming does not create a message per token. The client patches the assistant 
 
 ## Screens
 
-One window, three columns once the harness is complete. Earlier slices can ship with fewer.
+The window is specified in [UI](12-ui.md). It is the design handoff in `design/product-handoff/`: one sidebar, a Code mode and a Cowork mode, and the settings modal. Do not replace that shell with a three-column harness debugger.
 
-- **Models.** On-device and downloadable chat models that support tools. Download progress. Load and eject. The loaded model is global.
-- **Transcript.** Messages, tool cards, reasoning disclosure, the composer, the agent picker, the permission sheet.
-- **Inspector.** Session token estimate against the budget, connected MCP servers, skill list (names only), saved permission rules.
-
-The permission sheet is modal for that session only. A second session is not a v1 feature. One drain, one window.
+Permission asks use the existing popover, anchored to the tool row: **Allow once**, **Always**, **Deny**. They do not introduce a new window. One drain at a time. The task list is the set of sessions. Reference names in the handoff (Claude, sample models, the owner’s paths) are resolved in [UI](12-ui.md). The painted layout is not.
 
 ## What stays out of the client
 

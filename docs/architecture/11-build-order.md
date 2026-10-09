@@ -2,6 +2,8 @@
 
 Each slice is a running app. Later slices add services behind the same session drain. They do not replace it.
 
+The window for every slice is the handoff in `design/product-handoff/`, specified in [UI](12-ui.md). A slice may hide a page that has no data yet. It may not invent a different shell. Empty pages use the prototype’s empty copy.
+
 ## 1. Model-turn spike
 
 Load one small tool-capable model. Send one `withToolNamespaces` schema. Register no foreign tool. Set `toolTurnLimit` to 0. Confirm `toolCalls()` is populated and a hand-built `toolCallResult` on the next `reply` produces a final answer.
@@ -10,7 +12,7 @@ If tool calls only appear when the tool is registered, stop and record that. The
 
 ## 2. Drain and read-only tools
 
-SQLite history and inbox. Drain promotes a prompt, calls `UzuTurn`, settles `read`, `glob`, and `grep` with no permission UI (agent rules allow them). SwiftUI shows the stream and the tool cards. Reset-and-replay works, verified by killing the process mid-turn and continuing.
+SQLite history and inbox. Drain promotes a prompt, calls `UzuTurn`, settles `read`, `glob`, and `grep` with no permission UI (agent rules allow them). The task thread from the handoff shows the stream, and tool settlement shows up as the activity line. Reset-and-replay works, verified by killing the process mid-turn and continuing.
 
 ## 3. Permissions
 

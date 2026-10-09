@@ -16,14 +16,15 @@ The shape comes from [OpenCode](https://github.com/anomalyco/opencode) (`anomaly
 8. [Agents](08-agents.md) — build, plan, subagents
 9. [Uzu boundary](09-uzu-boundary.md) — the only file that talks about the engine
 10. [Client](10-client.md) — events the UI is allowed to see
-11. [Build order](11-build-order.md) — how the complete harness is sliced into working apps
+11. [UI](12-ui.md) — the Code / Cowork window. Looks match the handoff; reference ids are resolved there
+12. [Build order](11-build-order.md) — how the complete harness is sliced into working apps
 
 ## Module map
 
 ```text
 App
+  Shell           Code / Cowork window from design/product-handoff
   Models          catalog, download, one loaded model
-  Transcript      SwiftUI client
 Harness
   Session         admission, drain, history
   Context         sources, epoch, compaction
