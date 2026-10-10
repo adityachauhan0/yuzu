@@ -91,6 +91,15 @@ public final class HarnessStore: Sendable {
                 t.column("created_at", .double).notNull()
             }
         }
+        migrator.registerMigration("slice4") { db in
+            try db.create(table: "epochs") { t in
+                t.column("session_id", .text).notNull().references("sessions", onDelete: .cascade)
+                t.column("epoch_id", .text).notNull()
+                t.column("baseline_text", .text).notNull()
+                t.column("snapshots_json", .text).notNull().defaults(to: "{}")
+                t.primaryKey(["session_id", "epoch_id"])
+            }
+        }
         return migrator
     }
 
@@ -440,6 +449,56 @@ public final class HarnessStore: Sendable {
                     event.permissionRequestID,
                     Date().timeIntervalSince1970,
                 ]
+            )
+        }
+    }
+
+    public func insertEpoch(_ record: EpochRecord) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO epochs (session_id, epoch_id, baseline_text, snapshots_json)
+                VALUES (?, ?, ?, ?)
+                """,
+                arguments: [
+                    record.sessionID,
+                    record.epochID,
+                    record.baselineText,
+                    record.snapshotsJSON,
+                ]
+            )
+        }
+    }
+
+    public func epochRecord(sessionID: String, epochID: String) throws -> EpochRecord? {
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: """
+                SELECT session_id, epoch_id, baseline_text, snapshots_json
+                FROM epochs WHERE session_id = ? AND epoch_id = ?
+                """,
+                arguments: [sessionID, epochID]
+            ) else {
+                return nil
+            }
+            return EpochRecord(
+                sessionID: row["session_id"],
+                epochID: row["epoch_id"],
+                baselineText: row["baseline_text"],
+                snapshotsJSON: row["snapshots_json"]
+            )
+        }
+    }
+
+    public func updateEpochSnapshots(sessionID: String, epochID: String, snapshotsJSON: String) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                UPDATE epochs SET snapshots_json = ?
+                WHERE session_id = ? AND epoch_id = ?
+                """,
+                arguments: [snapshotsJSON, sessionID, epochID]
             )
         }
     }

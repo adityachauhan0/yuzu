@@ -26,6 +26,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     /// Overrides materialized tool names for the next boundary (tests).
     public var materializeOnly: Set<String>?
 
+    public var contextCoordinator = ContextCoordinator()
+
     public init(sessionID: String, store: HarnessStore, model: any ModelTurn) {
         self.sessionID = sessionID
         self.store = store
@@ -165,6 +167,16 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             }
             session = (try? store.session(id: sessionID)) ?? session
 
+            let contextResult = (try? contextCoordinator.reconcile(
+                store: store,
+                sessionID: sessionID,
+                epochID: session.epochID,
+                projectPath: session.projectPath
+            )) ?? ContextBoundaryResult(blocked: true, baselinePrepended: false)
+            if contextResult.blocked {
+                break loop
+            }
+
             let agent = agentFor(session)
             let savedAllows = (try? store.permissionRules(projectPath: session.projectPath)) ?? []
             let materialized = ToolRegistry.materialize(
@@ -177,8 +189,11 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             materializeOnly = nil
 
             session = (try? store.session(id: sessionID)) ?? session
-            let allMessages = (try? store.messages(sessionID: sessionID)) ?? []
-            let delta = Array(allMessages.dropFirst(session.modelMessageCursor))
+            let delta = (try? contextCoordinator.providerDelta(
+                store: store,
+                sessionID: sessionID,
+                session: session
+            )) ?? []
 
             let request = TurnRequest(
                 epochID: session.epochID,
@@ -283,6 +298,24 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         let inbox = (try? store.inboxRows(sessionID: sessionID)) ?? []
         guard inbox.contains(where: { $0.delivery == .queue }) else {
             return !messages.isEmpty
+        }
+
+        if messages.isEmpty {
+            let hasEpoch = (try? store.epochRecord(
+                sessionID: sessionID,
+                epochID: session.epochID
+            )) != nil
+            if !hasEpoch {
+                let preview = try? contextCoordinator.reconcile(
+                    store: store,
+                    sessionID: sessionID,
+                    epochID: session.epochID,
+                    projectPath: session.projectPath
+                )
+                if preview?.blocked == true {
+                    return false
+                }
+            }
         }
 
         if holdBeforeQueuePromotion {
