@@ -106,8 +106,10 @@ struct HarnessLoopTests {
 
         #expect(script.requests.count == 2)
         #expect(script.requests[0].toolTurnLimit == 0)
+        #expect(script.requests[0].delta.contains { $0.role == StoredMessage.Role.user })
         #expect(script.requests[1].delta.count == 1)
         #expect(script.requests[1].delta[0].role == StoredMessage.Role.tool)
+        #expect(!script.requests[1].delta.contains { $0.role == StoredMessage.Role.user })
         #expect(try store.messages(sessionID: sessionID).contains { $0.role == StoredMessage.Role.tool && $0.text.contains("hello") })
         #expect(try store.messages(sessionID: sessionID).last?.text == "saw it")
     }
@@ -169,12 +171,18 @@ struct HarnessLoopTests {
 
         let inboxBefore = try store.inboxRows(sessionID: sessionID)
         await runner.cancel()
+        #expect(script.resetEpochs.count == 1)
+        #expect(script.requests.count == 1)
         runner.releaseToolSettleHold()
         await runTask.value
+        if script.requests.count == 1 {
+            await runner.run()
+        }
 
         #expect(!(try store.messages(sessionID: sessionID).contains { $0.role == StoredMessage.Role.assistant && !$0.toolCalls.isEmpty }))
         #expect(try store.inboxRows(sessionID: sessionID) == inboxBefore)
-        #expect(!script.resetEpochs.isEmpty)
+        #expect(script.requests.count == 2)
+        #expect(script.resetEpochs.count == 1)
     }
 
     @Test func L8_resumeSettlesDanglingCall() async throws {
@@ -237,13 +245,18 @@ struct HarnessLoopTests {
             return messages.contains { $0.role == StoredMessage.Role.assistant && !$0.toolCalls.isEmpty }
         }
 
+        let sessionAfterToolCall = try #require(try store.session(id: sessionID))
+        #expect(sessionAfterToolCall.stepCount == 3)
+
         try runner.admitSteerDuringSettle("steer")
         runner.holdBeforeProviderTurn = true
         runner.releaseToolSettleHold()
 
         try await waitUntil(timeout: 2) {
             let session = try store.session(id: sessionID)
-            return session?.stepCount == 1
+            let steered = try store.messages(sessionID: sessionID)
+                .contains { $0.role == StoredMessage.Role.user && $0.text == "steer" }
+            return session?.stepCount == 1 && steered
         }
 
         let session = try #require(try store.session(id: sessionID))
@@ -265,6 +278,7 @@ struct HarnessLoopTests {
                 AssistantTurn(text: "second reply"),
             ]
         )
+        runner.holdBeforeToolSettle = true
 
         _ = try store.appendInbox(sessionID: sessionID, text: "one", delivery: .queue)
         let runTask = Task { await runner.run() }
@@ -277,9 +291,18 @@ struct HarnessLoopTests {
         let usersMid = try store.userMessages(sessionID: sessionID)
         #expect(usersMid.count == 1)
         #expect(usersMid[0].text == "one")
+        #expect(script.requests.count == 1)
+        #expect(!script.requests[0].delta.contains { $0.role == StoredMessage.Role.user && $0.text == "two" })
 
         _ = try store.appendInbox(sessionID: sessionID, text: "two", delivery: .queue)
+        let inboxWhilePending = try store.inboxRows(sessionID: sessionID)
+        #expect(inboxWhilePending.contains { $0.text == "two" })
+        #expect(try store.userMessages(sessionID: sessionID).count == 1)
+
+        runner.releaseToolSettleHold()
         await runTask.value
+        #expect(script.requests.count >= 2)
+        #expect(!script.requests[1].delta.contains { $0.role == StoredMessage.Role.user && $0.text == "two" })
         if !(try store.inboxRows(sessionID: sessionID).isEmpty) {
             await runner.run()
         }
