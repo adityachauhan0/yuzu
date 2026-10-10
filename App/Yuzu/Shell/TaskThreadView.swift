@@ -430,6 +430,10 @@ struct TaskThreadView: View {
                     .foregroundStyle(colors.softText)
                     .accessibilityID("thread-agent-button")
                     Button {
+                        if model.needsModelDownload {
+                            model.downloadModel()
+                            return
+                        }
                         modelMenuOpen.toggle()
                         effortMenuOpen = false
                         addMenuOpen = false

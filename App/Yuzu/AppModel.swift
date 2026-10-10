@@ -1443,7 +1443,20 @@ final class AppModel: ObservableObject {
     var modelDisplayName: String {
         if let downloadStatus { return downloadStatus }
         if let installedModelName, !installedModelName.isEmpty { return installedModelName }
-        return "No model"
+        return "Download model"
+    }
+
+    /// True while no model is loaded. The picker then downloads one instead of opening its menu.
+    var needsModelDownload: Bool {
+        runner.modelBacking != .uzu
+            && !scriptedRepliesAllowed
+            && ProcessInfo.processInfo.environment["YUZU_UI_ROUTE"] == nil
+    }
+
+    /// Starts (or retries) the advised model download. Progress shows in the picker label.
+    func downloadModel() {
+        guard needsModelDownload, prepareTask == nil else { return }
+        Task { await prepareAdvisedModel() }
     }
 
     func reloadSchedules() {
@@ -1549,7 +1562,9 @@ final class AppModel: ObservableObject {
             downloadStatus = nil
             log("model loaded \(installed.identifier)")
         } catch {
-            downloadStatus = "Could not download a model"
+            downloadStatus = nil
+            prepareTask = nil
+            showToast("Could not download a model. Click the model to try again.")
             log("model install failed: \(error)")
         }
     }

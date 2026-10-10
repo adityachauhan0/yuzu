@@ -105,6 +105,10 @@ struct CoworkHomeView: View {
                     Spacer()
 
                     Button {
+                        if model.needsModelDownload {
+                            model.downloadModel()
+                            return
+                        }
                         modelMenuOpen.toggle()
                         addMenuOpen = false
                         effortMenuOpen = false

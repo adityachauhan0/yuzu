@@ -376,10 +376,14 @@ struct CodeHomeView: View {
 
                 HStack(spacing: 8) {
                     Button {
+                        if model.needsModelDownload {
+                            model.downloadModel()
+                            return
+                        }
                         modelMenuOpen.toggle()
                         effortMenuOpen = false
                     } label: {
-                        Label(model.modelDisplayName, systemImage: "cpu")
+                        Label(model.modelDisplayName, systemImage: model.needsModelDownload ? "arrow.down.circle" : "cpu")
                             .font(.system(size: 14))
                             .lineLimit(1)
                             .truncationMode(.tail)

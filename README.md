@@ -11,6 +11,9 @@ Chat, write, and code with a model that runs entirely on your machine.
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-1B1D20?style=flat-square)](#requirements)
 [![Swift 6](https://img.shields.io/badge/Swift-6-B9D3C4?style=flat-square&logo=swift&logoColor=1B1D20)](https://swift.org)
 [![Powered by uzu](https://img.shields.io/badge/inference-uzu-B9D3C4?style=flat-square)](https://github.com/trymirai/uzu)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-1B1D20?style=flat-square)](LICENSE)
+
+**[Download for Mac](https://github.com/adityachauhan0/yuzu/releases/latest/download/Yuzu.dmg)** · [Website](https://adityachauhan0.github.io/yuzu/) · [Releases](https://github.com/adityachauhan0/yuzu/releases)
 
 <br/>
 
@@ -66,6 +69,15 @@ Every message is written to SQLite before the next model turn, so a thread survi
 - **Xcode** with the macOS 26.4 SDK
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) if you add or move app source files
 - Free disk space for the model. The 9B model is several GB, and uzu downloads it once.
+
+## Install
+
+1. Download **[Yuzu.dmg](https://github.com/adityachauhan0/yuzu/releases/latest/download/Yuzu.dmg)** and drag Yuzu into Applications.
+2. This build is ad-hoc signed, so macOS asks before the first open. Go to **System Settings → Privacy & Security → Open Anyway**, or run:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Yuzu.app
+   ```
+3. On first launch Yuzu downloads the model that fits your Mac, with progress in the model picker. If the download stops, click the model to try again.
 
 ## Build and run
 
@@ -127,6 +139,10 @@ YUZU_LIVE_HARNESS_MODEL='alibaba:qwen3.5:9b:mirai:mirai-m:4' swift test --filter
 - [GRDB.swift](https://github.com/groue/GRDB.swift) for SQLite
 - [OpenCode](https://github.com/anomalyco/opencode) for the harness ideas this one learned from
 - [Inter](https://rsms.me/inter/), [Source Serif 4](https://github.com/adobe-fonts/source-serif), and [OpenDyslexic](https://opendyslexic.org), all under the SIL Open Font License (see [`App/Yuzu/Fonts`](App/Yuzu/Fonts))
+
+## License
+
+Yuzu is licensed under the [GNU AGPL-3.0](LICENSE). You can use, study, and modify it freely, as long as anything you build on it, including a hosted service, is released as open source under the same license.
 
 <div align="center">
 <br/>
