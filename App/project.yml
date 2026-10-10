@@ -1,0 +1,51 @@
+name: Yuzu
+options:
+  bundleIdPrefix: com.yuzu
+  deploymentTarget:
+    macOS: "26.4"
+  createIntermediateGroups: true
+packages:
+  YuzuHarness:
+    path: ..
+targets:
+  Yuzu:
+    type: application
+    platform: macOS
+    sources:
+      - path: Yuzu
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yuzu.app
+        SWIFT_VERSION: "6.0"
+        ARCHS: arm64
+        EXCLUDED_ARCHS[sdk=macosx*]: x86_64
+        CODE_SIGN_ENTITLEMENTS: Yuzu/Yuzu.entitlements
+        INFOPLIST_FILE: Yuzu/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - package: YuzuHarness
+        product: YuzuHarness
+  YuzuTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: YuzuTests
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        ARCHS: arm64
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Yuzu
+      - package: YuzuHarness
+        product: YuzuHarness
+schemes:
+  Yuzu:
+    build:
+      targets:
+        Yuzu: all
+        YuzuTests: [test]
+    test:
+      targets:
+        - YuzuTests

@@ -1,0 +1,523 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */; };
+		089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB02AD51F4822A0DF5D67091 /* AppModel.swift */; };
+		19F67E222F0B9B73FD12E622 /* YuzuHarness in Frameworks */ = {isa = PBXBuildFile; productRef = 852615B4B85114DD92A4FF87 /* YuzuHarness */; };
+		570FF340E02320253373E290 /* TaskThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC6824C46709AB5927357B56 /* TaskThreadView.swift */; };
+		69C3882B2C6A3DA688FEC213 /* VisualEvalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */; };
+		7AD3BA247B3E18F49AE28C6E /* YuzuHarness in Frameworks */ = {isa = PBXBuildFile; productRef = C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */; };
+		8A3F3C66D09C63B227D4BF24 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50761F9AA523F42E1100484 /* Theme.swift */; };
+		907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2891A541671BDA8F63B24C50 /* CodeHomeView.swift */; };
+		98C876651522E56C43513FCE /* RootShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A591E69A9AD62982B71B2 /* RootShellView.swift */; };
+		AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */; };
+		B6FC6DBF59B421A802ECE1C2 /* YuzuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401FC88A8CEE39936B0187D0 /* YuzuApp.swift */; };
+		D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF17718930133925C4F8BBE /* AccessibilityID.swift */; };
+		DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */; };
+		EC794C64468DFC13B4161C35 /* ViewTestHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55399731AF77487B4742013 /* ViewTestHost.swift */; };
+		EE04C56F67291DA4F36539E5 /* SettingsDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		ED5A77794E371F6F9BA6E56D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1CACEFB206E4CB99A64AFD9B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 48F37B924DC1A5A6D0E75B9F;
+			remoteInfo = Yuzu;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		04717245065E78C16C21A7C0 /* Yuzu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yuzu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2891A541671BDA8F63B24C50 /* CodeHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeHomeView.swift; sourceTree = "<group>"; };
+		3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		401FC88A8CEE39936B0187D0 /* YuzuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuzuApp.swift; sourceTree = "<group>"; };
+		6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEvalTests.swift; sourceTree = "<group>"; };
+		6D6A591E69A9AD62982B71B2 /* RootShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootShellView.swift; sourceTree = "<group>"; };
+		7002D0706CAA850244B41B33 /* Yuzu.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Yuzu.entitlements; sourceTree = "<group>"; };
+		75773A8409E329362184411A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7DF17718930133925C4F8BBE /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
+		89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoworkHomeView.swift; sourceTree = "<group>"; };
+		A4153CC42FF556238F8215E6 /* yuzu */ = {isa = PBXFileReference; lastKnownFileType = folder; name = yuzu; path = ..; sourceTree = SOURCE_ROOT; };
+		B55399731AF77487B4742013 /* ViewTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewTestHost.swift; sourceTree = "<group>"; };
+		BC6824C46709AB5927357B56 /* TaskThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskThreadView.swift; sourceTree = "<group>"; };
+		CB02AD51F4822A0DF5D67091 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		CB7BDBDECB42A957346DC60E /* YuzuTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YuzuTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D50761F9AA523F42E1100484 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDialog.swift; sourceTree = "<group>"; };
+		E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomizeView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4255EC109C7771B6054DF77E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19F67E222F0B9B73FD12E622 /* YuzuHarness in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8FC4946FE250347E2DB33FC1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7AD3BA247B3E18F49AE28C6E /* YuzuHarness in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		068858506E36F649C61DF998 /* Testing */ = {
+			isa = PBXGroup;
+			children = (
+				7DF17718930133925C4F8BBE /* AccessibilityID.swift */,
+				B55399731AF77487B4742013 /* ViewTestHost.swift */,
+			);
+			path = Testing;
+			sourceTree = "<group>";
+		};
+		15778F4117BB5B029F5B8FD6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				04717245065E78C16C21A7C0 /* Yuzu.app */,
+				CB7BDBDECB42A957346DC60E /* YuzuTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2EF68298CF773C0CB6081792 /* Yuzu */ = {
+			isa = PBXGroup;
+			children = (
+				CB02AD51F4822A0DF5D67091 /* AppModel.swift */,
+				75773A8409E329362184411A /* Info.plist */,
+				7002D0706CAA850244B41B33 /* Yuzu.entitlements */,
+				401FC88A8CEE39936B0187D0 /* YuzuApp.swift */,
+				5D38B6857571D8E208F7D251 /* Shell */,
+				068858506E36F649C61DF998 /* Testing */,
+				93712F4A7BAB65982FD7AB6A /* Theme */,
+			);
+			path = Yuzu;
+			sourceTree = "<group>";
+		};
+		597585E242451AEBCE68BEC7 /* YuzuTests */ = {
+			isa = PBXGroup;
+			children = (
+				6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */,
+			);
+			path = YuzuTests;
+			sourceTree = "<group>";
+		};
+		5D38B6857571D8E208F7D251 /* Shell */ = {
+			isa = PBXGroup;
+			children = (
+				2891A541671BDA8F63B24C50 /* CodeHomeView.swift */,
+				89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */,
+				E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */,
+				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
+				DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */,
+				3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */,
+				BC6824C46709AB5927357B56 /* TaskThreadView.swift */,
+			);
+			path = Shell;
+			sourceTree = "<group>";
+		};
+		6BF6FD0DF10DD99FD9435378 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				A4153CC42FF556238F8215E6 /* yuzu */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		734F54C61F636C56D016985E = {
+			isa = PBXGroup;
+			children = (
+				6BF6FD0DF10DD99FD9435378 /* Packages */,
+				2EF68298CF773C0CB6081792 /* Yuzu */,
+				597585E242451AEBCE68BEC7 /* YuzuTests */,
+				15778F4117BB5B029F5B8FD6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		93712F4A7BAB65982FD7AB6A /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				D50761F9AA523F42E1100484 /* Theme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		48F37B924DC1A5A6D0E75B9F /* Yuzu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C8AFDA09FCD86642058F12AF /* Build configuration list for PBXNativeTarget "Yuzu" */;
+			buildPhases = (
+				7D35B5C02B2031D36486D74D /* Sources */,
+				8FC4946FE250347E2DB33FC1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Yuzu;
+			packageProductDependencies = (
+				C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */,
+			);
+			productName = Yuzu;
+			productReference = 04717245065E78C16C21A7C0 /* Yuzu.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C2557563CAD241D4387316DA /* YuzuTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1E88682A66E77E10823B7CDD /* Build configuration list for PBXNativeTarget "YuzuTests" */;
+			buildPhases = (
+				A7AEE34D350B390DC757442F /* Sources */,
+				4255EC109C7771B6054DF77E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				08C1638335D31777785A4237 /* PBXTargetDependency */,
+			);
+			name = YuzuTests;
+			packageProductDependencies = (
+				852615B4B85114DD92A4FF87 /* YuzuHarness */,
+			);
+			productName = YuzuTests;
+			productReference = CB7BDBDECB42A957346DC60E /* YuzuTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1CACEFB206E4CB99A64AFD9B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = D2E733E821598E76B2C216C5 /* Build configuration list for PBXProject "Yuzu" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 734F54C61F636C56D016985E;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0F30A46871845AFAE4794184 /* XCLocalSwiftPackageReference ".." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 15778F4117BB5B029F5B8FD6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				48F37B924DC1A5A6D0E75B9F /* Yuzu */,
+				C2557563CAD241D4387316DA /* YuzuTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7D35B5C02B2031D36486D74D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */,
+				089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */,
+				907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */,
+				074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */,
+				AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */,
+				98C876651522E56C43513FCE /* RootShellView.swift in Sources */,
+				EE04C56F67291DA4F36539E5 /* SettingsDialog.swift in Sources */,
+				DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */,
+				570FF340E02320253373E290 /* TaskThreadView.swift in Sources */,
+				8A3F3C66D09C63B227D4BF24 /* Theme.swift in Sources */,
+				EC794C64468DFC13B4161C35 /* ViewTestHost.swift in Sources */,
+				B6FC6DBF59B421A802ECE1C2 /* YuzuApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7AEE34D350B390DC757442F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69C3882B2C6A3DA688FEC213 /* VisualEvalTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		08C1638335D31777785A4237 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 48F37B924DC1A5A6D0E75B9F /* Yuzu */;
+			targetProxy = ED5A77794E371F6F9BA6E56D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0AA0F7934CDB237FAE2E935A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Yuzu/Yuzu.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Yuzu/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yuzu.app;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		1B926220D0981792AD69D085 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yuzu.YuzuTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Yuzu.app/Contents/MacOS/Yuzu";
+			};
+			name = Debug;
+		};
+		2F425FB7D1A0AAE2DE6EDD15 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		3B44150F4A7B0666D7FFCBB0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Yuzu/Yuzu.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Yuzu/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yuzu.app;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		882E30C769ED3180A8A1C067 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yuzu.YuzuTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Yuzu.app/Contents/MacOS/Yuzu";
+			};
+			name = Release;
+		};
+		C68B4B645F66AE40DF0A79C5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1E88682A66E77E10823B7CDD /* Build configuration list for PBXNativeTarget "YuzuTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1B926220D0981792AD69D085 /* Debug */,
+				882E30C769ED3180A8A1C067 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C8AFDA09FCD86642058F12AF /* Build configuration list for PBXNativeTarget "Yuzu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0AA0F7934CDB237FAE2E935A /* Debug */,
+				3B44150F4A7B0666D7FFCBB0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2E733E821598E76B2C216C5 /* Build configuration list for PBXProject "Yuzu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C68B4B645F66AE40DF0A79C5 /* Debug */,
+				2F425FB7D1A0AAE2DE6EDD15 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0F30A46871845AFAE4794184 /* XCLocalSwiftPackageReference ".." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		852615B4B85114DD92A4FF87 /* YuzuHarness */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YuzuHarness;
+		};
+		C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YuzuHarness;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1CACEFB206E4CB99A64AFD9B /* Project object */;
+}

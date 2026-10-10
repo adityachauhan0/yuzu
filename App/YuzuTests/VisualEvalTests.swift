@@ -1,0 +1,169 @@
+import XCTest
+import SwiftUI
+import YuzuHarness
+@testable import Yuzu
+
+@MainActor
+final class VisualEvalTests: XCTestCase {
+    private let forbidden = [
+        "Claude Code",
+        "Anthropic",
+        "GPT 6 Luna",
+        "Claude Opus",
+        "graph-engineering",
+        "tldraw",
+        "adityachauhan",
+        "not shown in the supplied reference",
+        "were not provided in the reference",
+    ]
+
+    private func makeModel() throws -> AppModel {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("yuzu-ui-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return try AppModel.makeForTesting(databaseURL: dir.appendingPathComponent("test.sqlite"))
+    }
+
+    private func rootView(model: AppModel) -> some View {
+        RootShellView().environmentObject(model)
+    }
+
+    func testV1_forbiddenCopyAbsent() throws {
+        let model = try makeModel()
+        for theme in AppTheme.allCases {
+            model.theme = theme
+            for route in UITestRoute.allCases {
+                model.applyTestRoute(route)
+                for width in [1100, 1440] {
+                    let host = ViewTestHost.host(rootView(model: model), size: CGSize(width: width, height: 900))
+                    let strings = ViewTestHost.collectAccessibilityStrings(from: host)
+                    let blob = strings.joined(separator: "\n")
+                    for word in forbidden {
+                        XCTAssertFalse(blob.contains(word), "Found \(word) on \(route) \(theme) \(width)")
+                    }
+                }
+            }
+        }
+    }
+
+    func testV2_disclaimerExact() throws {
+        let model = try makeModel()
+        model.applyTestRoute(.coworkTask)
+        let host = ViewTestHost.host(rootView(model: model))
+        let strings = ViewTestHost.collectAccessibilityStrings(from: host)
+        XCTAssertTrue(strings.contains(AppModel.disclaimer))
+    }
+
+    func testV3_codeTabShowsAppearance() throws {
+        let model = try makeModel()
+        model.applyTestRoute(.settingsCode)
+        let host = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("settings-code-appearance-heading", in: host))
+        let strings = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
+        XCTAssertFalse(strings.contains("Settings for this section are not shown in the supplied reference."))
+    }
+
+    func testV4_emptyStates() throws {
+        let model = try makeModel()
+        model.applyTestRoute(.coworkArtifacts)
+        var host = ViewTestHost.host(rootView(model: model))
+        var blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
+        XCTAssertTrue(blob.contains("No artifacts yet"))
+
+        model.applyTestRoute(.coworkProjects)
+        host = ViewTestHost.host(rootView(model: model))
+        blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
+        XCTAssertTrue(blob.contains("No project yet"))
+
+        model.applyTestRoute(.coworkCustomize)
+        host = ViewTestHost.host(rootView(model: model))
+        blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
+        XCTAssertTrue(blob.contains("Skills teach Yuzu how you work."))
+
+        model.applyTestRoute(.code)
+        host = ViewTestHost.host(rootView(model: model))
+        blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
+        XCTAssertTrue(blob.contains("—") || blob.contains("speed"))
+    }
+
+    func testV5_darkAndLightTokens() throws {
+        let model = try makeModel()
+        model.theme = .dark
+        XCTAssertEqual(model.resolvedPalette().canvas, Tokens.dark.canvas)
+        XCTAssertEqual(model.resolvedPalette().text, Tokens.dark.text)
+        XCTAssertEqual(model.resolvedPalette().accent, Tokens.dark.accent)
+        model.theme = .light
+        XCTAssertEqual(model.resolvedPalette().canvas, Tokens.light.canvas)
+        XCTAssertEqual(model.resolvedPalette().text, Tokens.light.text)
+        XCTAssertEqual(model.resolvedPalette().accent, Tokens.light.accent)
+    }
+
+    func testV6_reducedMotion() throws {
+        let model = try makeModel()
+        let reduced = model.motionDurations(reduceMotion: true)
+        XCTAssertEqual(reduced.hoverMs, 0)
+        XCTAssertEqual(reduced.drawerMs, 0)
+        let normal = model.motionDurations(reduceMotion: false)
+        XCTAssertEqual(normal.hoverMs, Tokens.hoverDurationMs)
+        XCTAssertEqual(normal.drawerMs, Tokens.drawerDurationMs)
+    }
+
+    func testV7_inspectorOverlaysNarrow() throws {
+        let model = try makeModel()
+        model.applyTestRoute(.coworkTask)
+        model.inspectorOpen = true
+        XCTAssertEqual(model.inspectorPresentation(width: 1100), .overlay)
+        XCTAssertEqual(model.inspectorPresentation(width: 1400), .beside)
+
+        model.contentWidth = 1100
+        let host = ViewTestHost.host(rootView(model: model), size: CGSize(width: 1100, height: 900))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("inspector-layout-overlay", in: host))
+
+        model.contentWidth = 1400
+        let wide = ViewTestHost.host(rootView(model: model), size: CGSize(width: 1400, height: 900))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("inspector-layout-beside", in: wide))
+    }
+
+    func testV8_manualAndLocal() async throws {
+        let model = try makeModel()
+        model.applyTestRoute(.code)
+        XCTAssertTrue(model.manualPressed)
+        XCTAssertEqual(model.permissionEffect(manualPressed: true), .ask)
+        XCTAssertEqual(model.permissionEffect(manualPressed: false), .allow)
+
+        await model.toggleManual()
+        XCTAssertFalse(model.manualPressed)
+        XCTAssertEqual(model.permissionEffect(manualPressed: false), .allow)
+
+        let host = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("code-local", in: host))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("code-manual", in: host))
+    }
+
+    func testRequiredAccessibilityIdentifiers() throws {
+        let model = try makeModel()
+        let host = ViewTestHost.host(rootView(model: model))
+        for id in [
+            "sidebar",
+            "mode-switch-cowork",
+            "mode-switch-code",
+            "nav-new",
+            "nav-projects",
+            "nav-artifacts",
+            "nav-scheduled",
+            "nav-customize",
+            "code-view",
+        ] {
+            XCTAssertTrue(ViewTestHost.containsIdentifier(id, in: host), "Missing \(id)")
+        }
+        model.applyTestRoute(.coworkNew)
+        let home = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("home", in: home))
+        model.applyTestRoute(.coworkTask)
+        let task = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("task-view", in: task))
+        model.applyTestRoute(.settingsCode)
+        let settings = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("settings-dialog", in: settings))
+    }
+}
