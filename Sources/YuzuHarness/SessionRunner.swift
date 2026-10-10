@@ -167,12 +167,17 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             }
             session = (try? store.session(id: sessionID)) ?? session
 
-            let contextResult = (try? contextCoordinator.reconcile(
-                store: store,
-                sessionID: sessionID,
-                epochID: session.epochID,
-                projectPath: session.projectPath
-            )) ?? ContextBoundaryResult(blocked: true, baselinePrepended: false)
+            let contextResult: ContextBoundaryResult
+            do {
+                contextResult = try contextCoordinator.reconcile(
+                    store: store,
+                    sessionID: sessionID,
+                    epochID: session.epochID,
+                    projectPath: session.projectPath
+                )
+            } catch {
+                break loop
+            }
             if contextResult.blocked {
                 break loop
             }
@@ -306,13 +311,18 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 epochID: session.epochID
             )) != nil
             if !hasEpoch {
-                let preview = try? contextCoordinator.reconcile(
-                    store: store,
-                    sessionID: sessionID,
-                    epochID: session.epochID,
-                    projectPath: session.projectPath
-                )
-                if preview?.blocked == true {
+                let preview: ContextBoundaryResult
+                do {
+                    preview = try contextCoordinator.reconcile(
+                        store: store,
+                        sessionID: sessionID,
+                        epochID: session.epochID,
+                        projectPath: session.projectPath
+                    )
+                } catch {
+                    return false
+                }
+                if preview.blocked {
                     return false
                 }
             }
