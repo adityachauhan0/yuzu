@@ -175,6 +175,17 @@ final class RealityEvalTests: XCTestCase {
         XCTAssertEqual(FencedText.segments("plain"), [.prose("plain")])
     }
 
+    func testMarkdownBlocksKeepHeadingsListsAndQuotes() {
+        let blocks = MarkdownBlocks.parse("# Title\n\n- one\n2. two\n\n> note\n\nHello **there**")
+        XCTAssertEqual(blocks, [
+            .heading(level: 1, text: "Title"),
+            .bullet("one"),
+            .numbered(marker: "2", text: "two"),
+            .quote("note"),
+            .paragraph("Hello **there**"),
+        ])
+    }
+
     func testFontChoicesResolveToTheFamiliesTheUIUses() {
         XCTAssertEqual(YuzuFonts.interfaceFamily("System"), "")
         XCTAssertEqual(YuzuFonts.interfaceFamily("Inter"), "Inter")

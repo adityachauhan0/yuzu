@@ -1,6 +1,35 @@
 import Foundation
 import os
 
+/// How the Code composer treats permission asks.
+/// Workspace Read asks before edits and shell. Workspace Write allows file edits and still asks for shell.
+/// YOLO allows every ask. An agent deny still wins, so Plan stays read-only.
+public enum PermissionPosture: Int, Sendable, Equatable {
+    case workspaceWrite = 0
+    case workspaceRead = 1
+    case yolo = 2
+
+    public var label: String {
+        switch self {
+        case .workspaceRead: "Workspace Read"
+        case .workspaceWrite: "Workspace Write"
+        case .yolo: "YOLO"
+        }
+    }
+
+    public var next: PermissionPosture {
+        switch self {
+        case .workspaceRead: .workspaceWrite
+        case .workspaceWrite: .yolo
+        case .yolo: .workspaceRead
+        }
+    }
+
+    public init(manualPressed: Bool) {
+        self = manualPressed ? .workspaceRead : .workspaceWrite
+    }
+}
+
 public enum PermissionEvaluator {
     public static let unknownAgentDenyAll: [PermissionRule] = [
         PermissionRule(action: "*", resource: "*", effect: .deny),
@@ -20,14 +49,17 @@ public enum PermissionEvaluator {
         return .ask
     }
 
-    /// Agent rules first; saved allows second. Agent deny cannot be overridden. Manual unpressed allows `edit`.
+    /// Agent rules first; saved allows second. Agent deny cannot be overridden.
+    /// Workspace Write allows `edit`. YOLO allows every remaining ask.
     public static func effect(
         agentID: String,
         action: String,
         resource: String,
         savedAllows: [PermissionRule],
-        manualPressed: Bool
+        manualPressed: Bool,
+        posture: PermissionPosture? = nil
     ) -> PermissionEffect {
+        let posture = posture ?? PermissionPosture(manualPressed: manualPressed)
         let agentRules = AgentCatalog.rules(for: agentID)
         let agentEffect = evaluateRules(agentRules, action: action, resource: resource)
         if agentEffect == .deny {
@@ -38,8 +70,15 @@ public enum PermissionEvaluator {
             return .allow
         }
 
-        if !manualPressed, action == "edit" {
+        switch posture {
+        case .yolo:
             return .allow
+        case .workspaceWrite:
+            if action == "edit" {
+                return .allow
+            }
+        case .workspaceRead:
+            break
         }
 
         return agentEffect

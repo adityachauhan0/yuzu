@@ -12,6 +12,7 @@ enum SubagentRunner {
         modelIdentifier: String,
         supportsMultipleToolCalls: Bool,
         manualPressed: Bool,
+        permissionPosture: PermissionPosture? = nil,
         contextLength: Int
     ) async -> String {
         let childID = "\(parentSessionID)-sub-\(UUID().uuidString)"
@@ -27,6 +28,7 @@ enum SubagentRunner {
             status: .idle,
             modelMessageCursor: 0,
             manualPressed: manualPressed,
+            permissionPosture: permissionPosture,
             contextLength: contextLength
         )
         try? store.insertSession(childSession)

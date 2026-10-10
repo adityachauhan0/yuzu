@@ -25,10 +25,14 @@ struct ChildTranscriptSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
-                        Text(message.text)
-                            .font(.system(size: 15))
-                            .foregroundStyle(message.role == .user ? colors.softText : colors.text)
-                            .textSelection(.enabled)
+                        if message.role == .assistant {
+                            MarkdownProse(text: message.text, font: .system(size: 15), colors: colors)
+                        } else {
+                            Text(message.text)
+                                .font(.system(size: 15))
+                                .foregroundStyle(colors.softText)
+                                .textSelection(.enabled)
+                        }
                     }
                 }
                 .padding(16)

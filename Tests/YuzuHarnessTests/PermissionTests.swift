@@ -409,6 +409,26 @@ struct PermissionTests {
                 manualPressed: false
             ) == .ask
         )
+        #expect(
+            PermissionEvaluator.effect(
+                agentID: "build",
+                action: "bash",
+                resource: "*",
+                savedAllows: [],
+                manualPressed: false,
+                posture: .yolo
+            ) == .allow
+        )
+        #expect(
+            PermissionEvaluator.effect(
+                agentID: "plan",
+                action: "edit",
+                resource: "*",
+                savedAllows: [],
+                manualPressed: false,
+                posture: .yolo
+            ) == .deny
+        )
 
         let project = try makeWorkspace()
         let store = try HarnessStore(path: project.appendingPathComponent("session.sqlite").path)

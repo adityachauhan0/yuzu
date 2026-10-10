@@ -47,7 +47,12 @@ public struct SessionRecord: Sendable, Equatable {
     public var supportsMultipleToolCalls: Bool
     public var status: SessionStatus
     public var modelMessageCursor: Int
-    public var manualPressed: Bool = true
+    public var permissionPosture: PermissionPosture = .workspaceRead
+    /// True only for Workspace Read. Setting this chooses Read or Write and leaves YOLO only via `permissionPosture`.
+    public var manualPressed: Bool {
+        get { permissionPosture == .workspaceRead }
+        set { permissionPosture = PermissionPosture(manualPressed: newValue) }
+    }
     public var contextLength: Int = CompactionSettings.production.contextLength
     public var compactionBufferTokens: Int = CompactionSettings.production.bufferTokens
     public var compactionKeepTokens: Int = CompactionSettings.production.keepTokens
@@ -65,6 +70,7 @@ public struct SessionRecord: Sendable, Equatable {
         status: SessionStatus,
         modelMessageCursor: Int,
         manualPressed: Bool = true,
+        permissionPosture: PermissionPosture? = nil,
         contextLength: Int = CompactionSettings.production.contextLength,
         compactionBufferTokens: Int = CompactionSettings.production.bufferTokens,
         compactionKeepTokens: Int = CompactionSettings.production.keepTokens,
@@ -80,7 +86,7 @@ public struct SessionRecord: Sendable, Equatable {
         self.supportsMultipleToolCalls = supportsMultipleToolCalls
         self.status = status
         self.modelMessageCursor = modelMessageCursor
-        self.manualPressed = manualPressed
+        self.permissionPosture = permissionPosture ?? PermissionPosture(manualPressed: manualPressed)
         self.contextLength = contextLength
         self.compactionBufferTokens = compactionBufferTokens
         self.compactionKeepTokens = compactionKeepTokens
@@ -356,7 +362,7 @@ public final class HarnessStore: Sendable {
                     session.supportsMultipleToolCalls ? 1 : 0,
                     session.status.rawValue,
                     session.modelMessageCursor,
-                    session.manualPressed ? 1 : 0,
+                    session.permissionPosture.rawValue,
                     session.contextLength,
                     session.compactionBufferTokens,
                     session.compactionKeepTokens,
@@ -397,7 +403,7 @@ public final class HarnessStore: Sendable {
                     session.supportsMultipleToolCalls ? 1 : 0,
                     session.status.rawValue,
                     session.modelMessageCursor,
-                    session.manualPressed ? 1 : 0,
+                    session.permissionPosture.rawValue,
                     session.contextLength,
                     session.compactionBufferTokens,
                     session.compactionKeepTokens,
@@ -1006,9 +1012,9 @@ extension SessionRecord: FetchableRecord {
         status = SessionStatus(rawValue: row["status"]) ?? .idle
         modelMessageCursor = row["model_message_cursor"]
         if let manual: Int = row["manual_pressed"] {
-            manualPressed = manual != 0
+            permissionPosture = PermissionPosture(rawValue: manual) ?? PermissionPosture(manualPressed: manual != 0)
         } else {
-            manualPressed = true
+            permissionPosture = .workspaceRead
         }
         contextLength = row["context_length"] ?? CompactionSettings.production.contextLength
         compactionBufferTokens = row["compaction_buffer_tokens"] ?? CompactionSettings.production.bufferTokens

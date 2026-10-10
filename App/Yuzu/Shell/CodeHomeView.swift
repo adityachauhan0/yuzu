@@ -55,7 +55,7 @@ struct CodeHomeView: View {
             }
             footer
                 .frame(maxWidth: CGFloat(Tokens.contentWidth))
-                .padding(.bottom, 3)
+                .padding(.bottom, 18)
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -247,36 +247,6 @@ struct CodeHomeView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Button {
-                } label: {
-                    Label("Local", systemImage: "rectangle.split.3x1")
-                        .font(.system(size: 14))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 3)
-                        .background(colors.selected)
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.muted)
-                .accessibilityID("code-local")
-
-                Button {
-                    chooseCodeFolder()
-                } label: {
-                    Label(model.codeFolderName, systemImage: "folder")
-                        .font(.system(size: 14))
-                        .lineLimit(1)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 3)
-                        .background(colors.surfaceHover)
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.muted)
-                .accessibilityID("code-folder")
-            }
-
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
                     TextField("Describe a task or ask a question", text: $prompt, axis: .vertical)
@@ -311,6 +281,24 @@ struct CodeHomeView: View {
                 .background(colors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.line, lineWidth: 1))
+                .overlay(alignment: .topLeading) {
+                    Button {
+                        chooseCodeFolder()
+                    } label: {
+                        Label(model.codeFolderName, systemImage: "folder")
+                            .font(.system(size: 14))
+                            .lineLimit(1)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(colors.surfaceHover)
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.muted)
+                    .accessibilityID("code-folder")
+                    .padding(.leading, 16)
+                    .offset(y: -36)
+                }
 
                 if let mascot = HandoffImage.codeMascot(dark: isDark, width: 56) {
                     mascot
@@ -340,28 +328,34 @@ struct CodeHomeView: View {
                 Button {
                     Task { await model.toggleManual() }
                 } label: {
-                    Text("Manual")
+                    Text(model.permissionPosture.label)
                         .font(.system(size: 14))
                         .foregroundStyle(colors.accent)
+                        .lineLimit(1)
                         .padding(.horizontal, 4)
-                        .background(model.manualPressed ? colors.selected.opacity(0.5) : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(.plain)
-                .accessibilityID("code-manual")
+                .accessibilityID("code-manual", label: model.permissionPosture.label)
 
                 Spacer()
 
-                HStack(spacing: 5) {
+                HStack(spacing: 8) {
                     Button {
                         modelMenuOpen.toggle()
+                        effortMenuOpen = false
                     } label: {
-                        Text(model.modelDisplayName)
+                        Label(model.modelDisplayName, systemImage: "cpu")
                             .font(.system(size: 14))
-                            .foregroundStyle(colors.text)
                             .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .frame(maxWidth: 220, alignment: .leading)
+                            .background(colors.surfaceHover)
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(colors.muted)
                     .accessibilityID("code-model-button")
 
                     Text(model.speedLabel)
@@ -382,7 +376,6 @@ struct CodeHomeView: View {
                 .buttonStyle(.plain)
                 .accessibilityID("code-effort")
             }
-            .padding(.top, 5)
 
             if !attachments.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
@@ -424,8 +417,9 @@ struct CodeHomeView: View {
                         modelMenuOpen = false
                     }
                 }
+                .frame(width: 220, alignment: .leading)
                 .padding(.bottom, 36)
-                .padding(.trailing, 80)
+                .padding(.trailing, 8)
             }
             if effortMenuOpen {
                 HandoffPopover(colors: colors) {
@@ -437,7 +431,9 @@ struct CodeHomeView: View {
                         }
                     }
                 }
+                .frame(width: 200, alignment: .leading)
                 .padding(.bottom, 36)
+                .padding(.trailing, 8)
             }
         }
         .dismissesOnEscape($effortMenuOpen)

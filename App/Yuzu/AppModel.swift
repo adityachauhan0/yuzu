@@ -62,7 +62,8 @@ final class AppModel: ObservableObject {
     @Published var theme: AppTheme = .dark { didSet { saveAppearance() } }
     @Published var settingsPresented = false
     @Published var settingsTab: SettingsTab = .general
-    @Published var manualPressed = true
+    @Published var permissionPosture: PermissionPosture = .workspaceRead
+    var manualPressed: Bool { permissionPosture == .workspaceRead }
     @Published var showTaskThread = false
     @Published var inspectorOpen = true
     @Published var contentWidth: CGFloat = 1440
@@ -324,8 +325,8 @@ final class AppModel: ObservableObject {
     }
 
     func toggleManual() async {
-        manualPressed.toggle()
-        await runner.setManualPressed(manualPressed)
+        permissionPosture = permissionPosture.next
+        await runner.setPermissionPosture(permissionPosture)
     }
 
     /// `newTask` starts a fresh session (Code home, Cowork New). The thread composer continues the open one.
@@ -467,7 +468,7 @@ final class AppModel: ObservableObject {
             supportsMultipleToolCalls: true,
             status: .idle,
             modelMessageCursor: 0,
-            manualPressed: manualPressed
+            permissionPosture: permissionPosture
         )
         guard (try? store.insertSession(record)) != nil else { return }
         switchSession(to: id)
@@ -506,7 +507,7 @@ final class AppModel: ObservableObject {
                 id: fresh, projectPath: project, agentID: "build",
                 modelIdentifier: (try? store.session(id: id)?.modelIdentifier) ?? "pending",
                 epochID: UUID().uuidString, stepCount: 0, supportsMultipleToolCalls: true,
-                status: .idle, modelMessageCursor: 0, manualPressed: manualPressed
+                status: .idle, modelMessageCursor: 0, permissionPosture: permissionPosture
             )
         )
         switchSession(to: fresh)
@@ -518,7 +519,7 @@ final class AppModel: ObservableObject {
         runner = next
         sessionID = id
         if let session = try? store.session(id: id) {
-            manualPressed = session.manualPressed
+            permissionPosture = session.permissionPosture
         }
         reloadTranscript()
         refreshPendingPermission()
@@ -983,12 +984,17 @@ final class AppModel: ObservableObject {
     }
 
     func permissionEffect(manualPressed: Bool) -> PermissionEffect {
+        permissionEffect(for: PermissionPosture(manualPressed: manualPressed), action: "edit")
+    }
+
+    func permissionEffect(for posture: PermissionPosture, action: String = "edit") -> PermissionEffect {
         PermissionEvaluator.effect(
             agentID: "build",
-            action: "edit",
+            action: action,
             resource: "*",
             savedAllows: [],
-            manualPressed: manualPressed
+            manualPressed: posture == .workspaceRead,
+            posture: posture
         )
     }
 

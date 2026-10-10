@@ -8,6 +8,7 @@ public struct MaterializedTools: Sendable {
     public let agentID: String
     public let savedAllows: [PermissionRule]
     public let manualPressed: Bool
+    public let permissionPosture: PermissionPosture
 
     private static let registeredBuiltinNames: Set<String> = [
         "read", "glob", "grep", "write", "edit", "bash", "skill", "task", "read_resource", "todowrite",
@@ -28,7 +29,8 @@ public struct MaterializedTools: Sendable {
                     action: action,
                     resource: resource,
                     savedAllows: savedAllows,
-                    manualPressed: manualPressed
+                    manualPressed: manualPressed,
+                    posture: permissionPosture
                 )
             }
             if effects.contains(.deny) {
@@ -96,8 +98,10 @@ public enum ToolRegistry {
         sessionID: String,
         savedAllows: [PermissionRule],
         manualPressed: Bool,
+        posture: PermissionPosture? = nil,
         onlyNames: Set<String>? = nil
     ) -> MaterializedTools {
+        let posture = posture ?? PermissionPosture(manualPressed: manualPressed)
         var definitions: [ToolDefinition] = []
         var allowed = Set<String>()
         for (tool, action) in gatedBuiltins {
@@ -151,7 +155,8 @@ public enum ToolRegistry {
             sessionID: sessionID,
             agentID: agent.id,
             savedAllows: savedAllows,
-            manualPressed: manualPressed
+            manualPressed: manualPressed,
+            permissionPosture: posture
         )
     }
 }

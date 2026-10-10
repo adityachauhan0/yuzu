@@ -265,11 +265,11 @@ struct TaskThreadView: View {
                 ForEach(Array(FencedText.segments(text).enumerated()), id: \.offset) { _, segment in
                     switch segment {
                     case .prose(let prose):
-                        Text(prose)
-                            .font(replyFont(size: model.transcriptFontSize + 4))
-                            .lineSpacing(4)
-                            .foregroundStyle(colors.text)
-                            .textSelection(.enabled)
+                        MarkdownProse(
+                            text: prose,
+                            font: replyFont(size: model.transcriptFontSize + 4),
+                            colors: colors
+                        )
                     case .code(let code):
                         CodeBlockView(
                             code: code,

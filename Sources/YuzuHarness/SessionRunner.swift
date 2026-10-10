@@ -161,8 +161,12 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     }
 
     public func setManualPressed(_ pressed: Bool) async {
+        await setPermissionPosture(PermissionPosture(manualPressed: pressed))
+    }
+
+    public func setPermissionPosture(_ posture: PermissionPosture) async {
         if var session = try? store.session(id: sessionID) {
-            session.manualPressed = pressed
+            session.permissionPosture = posture
             try? store.updateSession(session)
         }
     }
@@ -260,6 +264,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 sessionID: sessionID,
                 savedAllows: savedAllows,
                 manualPressed: session.manualPressed,
+                posture: session.permissionPosture,
                 onlyNames: materializeOnly
             )
             materializeOnly = nil
@@ -481,6 +486,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             sessionID: sessionID,
             savedAllows: savedAllows,
             manualPressed: session.manualPressed,
+            posture: session.permissionPosture,
             onlyNames: materializeOnly
         )
         materializeOnly = nil
@@ -528,7 +534,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 action: action,
                 resource: resource,
                 savedAllows: savedAllows,
-                manualPressed: session.manualPressed
+                manualPressed: session.manualPressed,
+                posture: session.permissionPosture
             )
         }
 
@@ -781,6 +788,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             modelIdentifier: session.modelIdentifier,
             supportsMultipleToolCalls: session.supportsMultipleToolCalls,
             manualPressed: session.manualPressed,
+            permissionPosture: session.permissionPosture,
             contextLength: session.contextLength
         )
         return ToolOutput.project(raw: result, sessionID: materialized.sessionID, callID: call.id)

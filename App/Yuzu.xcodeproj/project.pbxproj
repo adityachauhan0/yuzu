@@ -26,6 +26,7 @@
 		69E76490C4FD7F5EE761320C /* ChildTranscriptSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 468263DB885634B6F698AEDC /* ChildTranscriptSheet.swift */; };
 		6EB5418A200D0C6DA55AD454 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = FA6244A6BCBB0964FA031888 /* Fonts */; };
 		7364C0EDA68E7A9D3CFBBC3A /* HandoffIllustrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09EFF0547FAEFF791BD1BDDF /* HandoffIllustrations.swift */; };
+		77097D34D5D3D34A2A9C9340 /* MarkdownReply.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AAA3AED173A741611650265 /* MarkdownReply.swift */; };
 		7AD3BA247B3E18F49AE28C6E /* YuzuHarness in Frameworks */ = {isa = PBXBuildFile; productRef = C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */; };
 		7E0205CB63E5BDC4C0F88D60 /* TaskSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA191A74C2C1F1FAF7F3EB17 /* TaskSessionTests.swift */; };
 		7EF4A93C5DDCBFB33252ED00 /* HandoffToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC3AA2F66A5F5EEEC2CF3F0 /* HandoffToast.swift */; };
@@ -72,6 +73,7 @@
 		426BB06DF2463BE410883AD4 /* YuzuSwitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuzuSwitch.swift; sourceTree = "<group>"; };
 		432DDF2E2265082846E9437F /* cowork-logo-light.svg */ = {isa = PBXFileReference; path = "cowork-logo-light.svg"; sourceTree = "<group>"; };
 		468263DB885634B6F698AEDC /* ChildTranscriptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildTranscriptSheet.swift; sourceTree = "<group>"; };
+		5AAA3AED173A741611650265 /* MarkdownReply.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownReply.swift; sourceTree = "<group>"; };
 		5C65F2AC1CFB1B6DF17B9F84 /* V1WindowEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V1WindowEvalTests.swift; sourceTree = "<group>"; };
 		5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffPopover.swift; sourceTree = "<group>"; };
 		679A6099E5921957A4FD3CDF /* RealityEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealityEvalTests.swift; sourceTree = "<group>"; };
@@ -193,6 +195,7 @@
 				3D31CADE7C7EFEBEB3AD0C6F /* HandoffImage.swift */,
 				5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */,
 				6CC3AA2F66A5F5EEEC2CF3F0 /* HandoffToast.swift */,
+				5AAA3AED173A741611650265 /* MarkdownReply.swift */,
 				CC9A112B948847401A1FC533 /* ProjectsView.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
 				00FBED88D0B21C48B88A9D7C /* SearchDialogView.swift */,
@@ -345,6 +348,7 @@
 				65A7360BFA9CD6182ABA8210 /* HandoffImage.swift in Sources */,
 				45FEE2BDF97DAC96058DF547 /* HandoffPopover.swift in Sources */,
 				7EF4A93C5DDCBFB33252ED00 /* HandoffToast.swift in Sources */,
+				77097D34D5D3D34A2A9C9340 /* MarkdownReply.swift in Sources */,
 				1E1AAB3AD1BE4037AE05C904 /* ProjectsView.swift in Sources */,
 				98C876651522E56C43513FCE /* RootShellView.swift in Sources */,
 				BC23DF2CF1E2B745CB516CDB /* SearchDialogView.swift in Sources */,
