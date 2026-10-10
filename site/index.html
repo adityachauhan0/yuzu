@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Yuzu: a local AI workspace for your Mac</title>
-<meta name="description" content="Chat, write, and code with a model that runs entirely on your Mac. Yuzu is a native SwiftUI app around a real agent harness, powered by uzu." />
-<meta property="og:title" content="Yuzu: a local AI workspace for your Mac" />
-<meta property="og:description" content="Chat, write, and code with a model that runs entirely on your Mac." />
+<title>Yuzu: a local AI agent for your Mac</title>
+<meta name="description" content="A local AI agent for your Mac. Connect Slack, GitHub, Notion, or any MCP server, teach it workflows as skills, and run it on an on-device model powered by uzu." />
+<meta property="og:title" content="Yuzu: a local AI agent for your Mac" />
+<meta property="og:description" content="A local AI agent for your Mac. MCP, skills, and an on-device model." />
 <meta property="og:image" content="https://adityachauhan0.github.io/yuzu/assets/demo-poster.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" type="image/png" href="assets/favicon.png" />
@@ -107,6 +107,26 @@
   .chip { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted);
           background: var(--side); border-radius: 999px; padding: 4px 10px; margin: 16px 6px 0 0; }
 
+  /* MCP and skills */
+  .uses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; }
+  .use { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 16px; padding: 20px 22px;
+         transition: transform .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease); }
+  .use:hover { transform: translateY(-2px); border-color: var(--line); background: var(--hover); }
+  .use .app { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: .01em; margin-bottom: 8px; }
+  .use p { margin: 0; font-family: "Source Serif 4", Georgia, serif; font-size: 17px; line-height: 1.45; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+  .split .panel { padding: 28px; }
+  .split .note { color: var(--muted); font-size: 14.5px; margin: 0 0 4px; }
+  .split pre { font-size: 12.5px; line-height: 1.6; }
+  .split pre .k { color: var(--accent); }
+  .split pre .d { color: var(--dim); }
+  .ticks { list-style: none; padding: 0 !important; margin: 18px 0 0 !important; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .ticks li { position: relative; padding-left: 22px; font-size: 14px; color: var(--muted); margin: 0 !important; }
+  .ticks li::before { content: ""; position: absolute; left: 0; top: 6px; width: 12px; height: 7px; border-left: 2px solid var(--accent);
+                      border-bottom: 2px solid var(--accent); transform: rotate(-45deg); }
+  code { font: .92em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--side); padding: 1px 5px; border-radius: 5px; }
+  pre code { background: none; padding: 0; }
+
   /* Features */
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 40px; }
   .card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 16px; padding: 24px;
@@ -161,15 +181,15 @@
   }
 
   @media (max-width: 860px) {
-    .modes, .install { grid-template-columns: 1fr; }
-    .grid { grid-template-columns: 1fr 1fr; }
+    .modes, .install, .split { grid-template-columns: 1fr; }
+    .grid, .uses { grid-template-columns: 1fr 1fr; }
     .posture { grid-template-columns: 1fr; }
     .posture div { border-right: 0; border-bottom: 1px solid var(--line-soft); }
     .posture div:last-child { border-bottom: 0; }
     .nav-links a.hide-sm { display: none; }
   }
   @media (max-width: 560px) {
-    .grid { grid-template-columns: 1fr; }
+    .grid, .uses, .ticks { grid-template-columns: 1fr; }
     .hero { padding-top: 56px; }
   }
 </style>
@@ -181,6 +201,7 @@
     <a class="brand" href="#"><img src="assets/icon.png" alt="" />Yuzu</a>
     <div class="nav-links">
       <a class="hide-sm" href="#modes">Modes</a>
+      <a class="hide-sm" href="#connect">MCP &amp; skills</a>
       <a class="hide-sm" href="#features">Features</a>
       <a class="hide-sm" href="#install">Install</a>
       <a href="https://github.com/adityachauhan0/yuzu">GitHub</a>
@@ -192,7 +213,7 @@
   <img class="icon" src="assets/icon.png" alt="Yuzu app icon: a dark green cat on a white tile" />
   <div><span class="eyebrow">v0.1.0 · Apple Silicon · macOS 26.4+</span></div>
   <h1>The lid is open.<br/><em>The model is yours.</em></h1>
-  <p class="lede">Yuzu is a local AI workspace for your Mac. Chat, write, and code with a model that runs entirely on your machine. Your prompts, your files, and your transcripts stay on your Mac.</p>
+  <p class="lede">Yuzu is a local AI agent for your Mac. Connect Slack, GitHub, Notion, or any MCP server, teach it your workflows as skills, and let it work across your tools and your code. The model runs on your machine, and so do your files and transcripts.</p>
   <div class="cta">
     <a class="btn primary" href="https://github.com/adityachauhan0/yuzu/releases/latest/download/Yuzu.dmg">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.54c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.77-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.76 2.28-1.6 2.78-.41 6.9 1.15 9.16.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.78.74 2.99.72 1.24-.02 2.02-1.12 2.77-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65zM14.1 5.8c.63-.77 1.06-1.83.94-2.9-.91.04-2.02.61-2.67 1.37-.58.67-1.1 1.76-.96 2.8 1.02.08 2.06-.52 2.69-1.27z"/></svg>
@@ -220,16 +241,74 @@
     <div class="modes">
       <article class="mode">
         <h3>Cowork</h3>
-        <p>Drafts, summaries, briefings, strange ideas. Ask for a poem and you get a poem. Every task runs in a private sandbox folder, so nothing touches your projects.</p>
-        <div><span class="chip">✍️ Writing</span><span class="chip">🗓️ Scheduled tasks</span><span class="chip">💡 Ideas</span></div>
+        <p>Everyday work across your tools: a morning Slack digest, inbox triage, release notes, research briefs. Every task runs in a private sandbox folder, and any task can run on a schedule.</p>
+        <div><span class="chip">💬 Slack digests</span><span class="chip">🗓️ Scheduled tasks</span><span class="chip">🔎 Research</span></div>
         <div class="art"><picture><source srcset="assets/cowork-logo.svg" media="(prefers-color-scheme: dark)" /><img class="wide" src="assets/cowork-logo-light.svg" alt="" /></picture></div>
       </article>
       <article class="mode">
         <h3>Code</h3>
-        <p>Open any folder and work on it. Yuzu reads, searches, edits, and runs commands there, and asks before it changes anything. Threads are grouped by workspace.</p>
-        <div><span class="chip">📁 Any folder</span><span class="chip">🧪 Shell and tests</span><span class="chip">🧭 Plan agent</span></div>
+        <p>Open any folder and work on it. Yuzu reads, searches, edits, and runs commands there, pulls context from GitHub, Sentry, or Linear, and asks before it changes anything.</p>
+        <div><span class="chip">📁 Any folder</span><span class="chip">🧪 Shell and tests</span><span class="chip">🐛 Crash to fix</span></div>
         <div class="art"><picture><source srcset="assets/code-input-mascot.svg" media="(prefers-color-scheme: dark)" /><img class="wide" src="assets/code-input-mascot-light.svg" alt="" /></picture></div>
       </article>
+    </div>
+  </section>
+
+  <section id="connect" class="wrap reveal">
+    <div class="kicker">MCP and skills</div>
+    <h2>Plug in your stack. Teach it your playbook.</h2>
+    <p class="sub">MCP connects Yuzu to the tools you already use. Skills teach it how your team uses them. Together, a model on your Mac does real work across Slack, GitHub, Notion, and more.</p>
+
+    <div class="uses">
+      <div class="use"><div class="app">💬 Slack</div><p>“Summarize what I missed in #eng since yesterday and draft replies to anything that mentions me.”</p></div>
+      <div class="use"><div class="app">🐙 GitHub</div><p>“Review the open PRs, check each against our style skill, and leave a summary on every one.”</p></div>
+      <div class="use"><div class="app">📐 Linear</div><p>“Turn the TODOs in this folder into issues, tagged by area and linked to the right files.”</p></div>
+      <div class="use"><div class="app">🚨 Sentry</div><p>“Pull last night's top crash, find the code path in this repo, and propose a fix.”</p></div>
+      <div class="use"><div class="app">📝 Notion</div><p>“Write this week's release notes from merged PRs and file them in our changelog.”</p></div>
+      <div class="use"><div class="app">🌐 Web search</div><p>“Compare three alternatives to our job queue in a table and save it next to the design doc.”</p></div>
+    </div>
+
+    <div class="split">
+      <div class="panel">
+        <h4>Connect in one sentence</h4>
+        <p class="note">Ask <em>“install the DuckDuckGo MCP server”</em> and the agent writes the entry, connects it, and starts using it. Token-based servers go in Connectors or <code>mcp.json</code>:</p>
+<pre><span class="k">"slack"</span>: {
+  <span class="k">"command"</span>: "npx",
+  <span class="k">"args"</span>: ["-y", "@modelcontextprotocol/server-slack"],
+  <span class="k">"env"</span>: { "SLACK_BOT_TOKEN": "xoxb-…" }
+},
+<span class="k">"github"</span>: {
+  <span class="k">"url"</span>: "https://api.githubcopilot.com/mcp/",
+  <span class="k">"headers"</span>: { "Authorization": "Bearer …" }
+}</pre>
+        <ul class="ticks">
+          <li>Local (stdio) and remote (HTTP) servers</li>
+          <li>OAuth sign-in with PKCE, tokens in the Keychain</li>
+          <li>Server prompts become <code>/commands</code></li>
+          <li>Every MCP call asks before it runs</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h4>Teach it a workflow once</h4>
+        <p class="note">A skill is a folder with a <code>SKILL.md</code> and any scripts it needs. Commit it to <code>.yuzu/skills/</code> and your whole team gets it.</p>
+<pre><span class="d">---</span>
+<span class="k">name</span>: standup
+<span class="k">description</span>: Use for a standup or daily update.
+<span class="k">slash</span>: true
+<span class="d">---</span>
+
+1. Read my commits since the last workday.
+2. Read Linear issues assigned to me that moved.
+3. Read my messages in #eng and #product.
+4. Write Done, Doing, Blocked. Link everything.
+5. Post to #standup after I approve.</pre>
+        <ul class="ticks">
+          <li>Loaded only when a request matches</li>
+          <li>Run directly as <code>/standup</code></li>
+          <li>Pair with Scheduled for a 9 AM digest</li>
+          <li>Built-in <code>customize-yuzu</code> edits Yuzu itself</li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -256,13 +335,13 @@
       </div>
       <div class="card">
         <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/></svg></div>
-        <h4>MCP built in</h4>
-        <p>Say “install DuckDuckGo MCP” and the agent adds, connects, and starts using the server.</p>
+        <h4>Any MCP server</h4>
+        <p>Local and remote servers, OAuth sign-in, Keychain tokens. Tools, prompts, and resources all reach the agent.</p>
       </div>
       <div class="card">
         <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></div>
         <h4>Skills and subagents</h4>
-        <p>Drop a <code>SKILL.md</code> in a folder and the agent loads it when it fits. Hand side quests to a subagent.</p>
+        <p>Team workflows as <code>SKILL.md</code> files with their own scripts, run as <code>/commands</code>. Hand side quests to a subagent.</p>
       </div>
       <div class="card">
         <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div>

@@ -23,20 +23,89 @@ Chat, write, and code with a model that runs entirely on your machine.
 
 <br/>
 
-Yuzu is a native SwiftUI app wrapped around a real agent harness. Ask it for a poem and it writes one. Point it at a folder and it reads, edits, and runs commands there, asking first. The model, the transcript, and your files stay on your Mac.
+Yuzu is a native SwiftUI app wrapped around a real agent harness. Connect it to Slack, GitHub, Linear, Notion, or any MCP server, teach it your team's workflows as skills, and let it work across your tools and your repo, asking before it acts. The model runs on your Mac, and so do the transcript and your files.
 
 ## Highlights
 
 |   |   |
 |---|---|
+| 🔌 **Any MCP server** | Local (stdio) and remote (streamable HTTP) servers, with OAuth sign-in and tokens kept in the Keychain. Tools, prompts, and resources all reach the agent. Ask *“install the DuckDuckGo MCP”* and it installs one for you. |
+| 🧩 **Skills** | Teach Yuzu a workflow once in a `SKILL.md`, with scripts and templates alongside. The agent loads it when a request matches, or you run it as a `/command`. |
 | 🐱 **Fully local** | Inference runs on [uzu](https://github.com/trymirai/uzu) on Apple Silicon. Yuzu picks the largest Mirai-quantized chat model that fits in half your RAM and downloads it to uzu's cache on first launch. No weights ship in the app. |
-| ✍️ **Cowork** | A quiet page for everyday work: drafting, summaries, ideas, questions. Tasks run in a private sandbox folder. |
+| ✍️ **Cowork** | Everyday work across your tools: briefings, triage, drafts, research. Tasks run in a private sandbox folder and can run on a schedule. |
 | 🧑‍💻 **Code** | Open any folder and work on it. Threads are grouped by workspace in the sidebar. |
-| 🔐 **Permissions you control** | Cycle between **Workspace Read** (ask before edits and shell), **Workspace Write** (edits allowed, shell asks), and **YOLO** (no prompts). The **Plan** agent can never edit or run commands. |
+| 🔐 **Permissions you control** | Cycle between **Workspace Read** (ask before edits and shell), **Workspace Write** (edits allowed, shell asks), and **YOLO** (no prompts). MCP tools ask before they run. The **Plan** agent can never edit or run commands. |
+| 🤝 **Subagents and todos** | Hand a side quest to a subagent with its own loop, and track multi-step work in a live progress list. |
 | ⚡ **Live turns** | Reasoning, text, and tool calls stream in as they happen. Replies render as Markdown with themed code blocks. |
 | 📊 **Honest metrics** | Live context usage, decode tok/s (time to first token excluded), and the CPU and RAM used by the model process itself. |
-| 🔌 **MCP built in** | Ask the agent to “install DuckDuckGo MCP” and it will add, connect, and use the server for you. |
-| 🧩 **Skills and subagents** | Load skill instructions on demand, hand a sub-task to a subagent, track progress with a todo list. |
+
+## What you can do with it
+
+MCP connects Yuzu to the tools you already use. Skills teach it how your team uses them. Put them together and a local model can do real work:
+
+| Connect | Then ask |
+|---|---|
+| **Slack** | *“Summarize what I missed in #eng since yesterday and draft replies to anything that mentions me.”* |
+| **GitHub** | *“Review the open PRs on this repo, check each one against our style skill, and leave a summary.”* |
+| **Linear** | *“Turn the TODOs in this folder into Linear issues, tagged by area, linked to the right files.”* |
+| **Sentry** | *“Pull the top crash from last night, find the code path in this repo, and propose a fix.”* |
+| **Notion** | *“Write this week's release notes from merged PRs and file them in our Notion changelog.”* |
+| **Web search** | *“Research three alternatives to our current queue, compare them in a table, and save it to a file.”* |
+
+Schedule any of these from Cowork (for example, a Slack digest every weekday at 9) and Yuzu runs it on its own.
+
+### Connect a server
+
+Ask in any thread:
+
+> Install the DuckDuckGo MCP server.
+
+The agent writes the entry, connects it, and starts using it. For servers that need a token, add them under **Customize → Connectors** or in `~/Library/Application Support/Yuzu/mcp.json`:
+
+```json
+{
+  "mcp_servers": {
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "env": { "SLACK_BOT_TOKEN": "xoxb-…", "SLACK_TEAM_ID": "T…" }
+    },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer github_pat_…" }
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": { "NOTION_TOKEN": "ntn_…" }
+    }
+  }
+}
+```
+
+Remote servers that answer with an OAuth challenge get a **Sign in** button in Connectors. Yuzu runs the browser flow with PKCE on a local loopback port and keeps the token in your Keychain. Each server's tools reach the agent as `mcp` calls, its prompts become `/commands` in the composer, and its resources can be read into context.
+
+### Teach it a workflow
+
+A skill is a folder with a `SKILL.md`, plus any scripts, templates, or reference files it needs:
+
+```markdown
+---
+name: standup
+description: Use when the user asks for a standup, a daily update, or "what did I do yesterday".
+slash: true
+---
+
+1. Read my commits from the last working day with `git log --author`.
+2. Read the Linear issues assigned to me that moved state.
+3. Read my Slack messages in #eng and #product.
+4. Write three short sections: Done, Doing, Blocked. Link every item.
+5. Post it to #standup only after I approve the draft.
+```
+
+The agent sees only the name and description until a request matches, then loads the full instructions and the list of files beside it, so a skill can ship its own scripts. With `slash: true`, the skill is also a command: type `/standup` in the composer.
+
+Skills live in `.yuzu/skills/<name>/` inside a project (shared with your team through git) or in `~/Library/Application Support/Yuzu/skills/<name>/` for personal ones. Yuzu ships with one built in, `customize-yuzu`, which lets the agent install MCP servers, write skills, and edit its own permission rules when you ask.
 
 ## How it works
 
@@ -104,20 +173,9 @@ The first launch downloads the advised model. After that, Yuzu starts offline.
 | Project instructions | `YUZU.md` (or `AGENTS.md`) at the root of the folder you open |
 | Project skills | `.yuzu/skills/<name>/SKILL.md` |
 | Personal skills | `~/Library/Application Support/Yuzu/skills/<name>/SKILL.md` |
-| MCP servers | `~/Library/Application Support/Yuzu/mcp.json`, or just ask the agent |
+| MCP servers | `~/Library/Application Support/Yuzu/mcp.json`, **Customize → Connectors**, or just ask the agent |
 
-A skill is a Markdown file with a short header:
-
-```markdown
----
-name: release-notes
-description: Use when the user asks for release notes from recent commits.
----
-
-Read the last tag, list merged changes, and group them by area…
-```
-
-The agent sees only the name and description until it decides a skill fits, then loads the full text.
+See [What you can do with it](#what-you-can-do-with-it) for MCP and skill examples.
 
 ## Tests
 
