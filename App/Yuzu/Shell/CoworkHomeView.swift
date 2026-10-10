@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import YuzuHarness
 
@@ -5,6 +6,10 @@ struct CoworkHomeView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
     @State private var prompt = ""
+    @State private var addMenuOpen = false
+    @State private var modelMenuOpen = false
+    @State private var projectMenuOpen = false
+    @State private var attachedFiles: [String] = []
 
     private var isDark: Bool { model.theme == .dark }
 
@@ -12,7 +17,7 @@ struct CoworkHomeView: View {
         VStack(spacing: 24) {
             Spacer()
             welcomeHeading
-            composer
+            composerWrap
             ideas
             Spacer()
         }
@@ -45,28 +50,179 @@ struct CoworkHomeView: View {
         .padding(.bottom, 16)
     }
 
-    private var composer: some View {
-        VStack(spacing: 8) {
-            TextField("How can I help you today?", text: $prompt, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(2...4)
-                .padding(16)
-                .background(colors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(colors.line, lineWidth: 1))
-            HStack {
-                Spacer()
-                Button {
-                    Task { await model.sendPrompt(prompt) }
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+    private var composerWrap: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                TextField("How can I help you today?", text: $prompt, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(2...4)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                    .onSubmit { sendTask() }
+
+                HStack(spacing: 10) {
+                    Button {
+                        addMenuOpen.toggle()
+                        modelMenuOpen = false
+                        projectMenuOpen = false
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22))
+                            .frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.muted)
+                    .accessibilityID("add-button", label: "Add to task")
+
+                    Spacer()
+
+                    Button {
+                        modelMenuOpen.toggle()
+                        addMenuOpen = false
+                        projectMenuOpen = false
+                    } label: {
+                        Text(model.modelDisplayName)
+                            .font(.system(size: 15))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.text)
+                    .accessibilityID("model-button")
+
+                    Text(model.coworkEffortLabel)
+                        .font(.system(size: 15))
+                        .foregroundStyle(colors.text)
+                        .accessibilityID("effort-label")
+
+                    Button(action: sendTask) {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? colors.dim : colors.accent)
+                    .accessibilityID("send-button", label: "Send task")
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.accent)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+                .frame(minHeight: 53)
+            }
+            .background(colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 21))
+            .overlay(RoundedRectangle(cornerRadius: 21).stroke(colors.line, lineWidth: 1))
+
+            Button {
+                projectMenuOpen.toggle()
+                addMenuOpen = false
+                modelMenuOpen = false
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 16))
+                    Text(model.coworkProjectName)
+                        .font(.system(size: 15.5))
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10))
+                        .foregroundStyle(colors.dim)
+                    Spacer()
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14))
+                        .foregroundStyle(colors.dim)
+                }
+                .padding(.horizontal, 26)
+                .frame(height: 49)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(colors.muted)
+            .accessibilityID("project-button")
+
+            if !attachedFiles.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(attachedFiles, id: \.self) { path in
+                        Text(URL(fileURLWithPath: path).lastPathComponent)
+                            .font(.system(size: 13))
+                            .foregroundStyle(colors.dim)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
             }
         }
         .frame(maxWidth: CGFloat(Tokens.contentWidth))
+        .overlay(alignment: .topLeading) {
+            if addMenuOpen {
+                addMenu
+                    .padding(.top, 120)
+                    .padding(.leading, 16)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if modelMenuOpen {
+                modelMenu
+                    .padding(.top, 120)
+                    .padding(.trailing, 56)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if projectMenuOpen {
+                projectMenu
+                    .padding(.top, 169)
+                    .padding(.leading, 16)
+            }
+        }
+    }
+
+    private var addMenu: some View {
+        HandoffPopover(colors: colors) {
+            HandoffMenuLabel(title: "Add to task", colors: colors)
+            HandoffPopoverRow(title: "Attach a file", colors: colors) {
+                addMenuOpen = false
+                attachFile()
+            }
+            .accessibilityID("cowork-attach-file")
+            HandoffPopoverRow(title: "Choose a project", colors: colors) {
+                addMenuOpen = false
+                projectMenuOpen = true
+            }
+            .accessibilityID("cowork-choose-project")
+        }
+    }
+
+    private var modelMenu: some View {
+        HandoffPopover(colors: colors) {
+            HandoffMenuLabel(title: "Model and effort", colors: colors)
+            ForEach(["High", "Medium", "Low"], id: \.self) { effort in
+                HandoffPopoverRow(
+                    title: "\(model.modelDisplayName) · \(effort)",
+                    colors: colors
+                ) {
+                    model.reasoningEffort = effortValue(effort)
+                    modelMenuOpen = false
+                }
+                .accessibilityIdentifier("cowork-effort-\(effort)")
+            }
+        }
+    }
+
+    private var projectMenu: some View {
+        HandoffPopover(colors: colors) {
+            HandoffMenuLabel(title: "Project", colors: colors)
+            ForEach(model.knownCoworkProjectFolders, id: \.self) { folder in
+                HandoffPopoverRow(title: folder, colors: colors) {
+                    model.coworkProjectName = folder
+                    projectMenuOpen = false
+                }
+                .accessibilityIdentifier("cowork-project-\(folder)")
+            }
+            HandoffPopoverRow(title: "No project", colors: colors) {
+                model.coworkProjectName = "No project"
+                projectMenuOpen = false
+            }
+            .accessibilityID("cowork-project-none")
+        }
     }
 
     private var ideas: some View {
@@ -96,5 +252,32 @@ struct CoworkHomeView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(colors.muted)
+    }
+
+    private func sendTask() {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        Task {
+            await model.sendPrompt(trimmed)
+            prompt = ""
+        }
+    }
+
+    private func effortValue(_ label: String) -> ReasoningEffort {
+        switch label {
+        case "Low": return .low
+        case "Medium": return .medium
+        default: return .high
+        }
+    }
+
+    private func attachFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK {
+            attachedFiles.append(contentsOf: panel.urls.map(\.path))
+        }
     }
 }

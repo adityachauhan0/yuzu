@@ -44,6 +44,8 @@ final class AppModel: ObservableObject {
     @Published var sidebarCollapsed = false
     @Published var codeFolderName = "Select folder…"
     @Published var keepAwake = false
+    @Published var reasoningEffort: ReasoningEffort = .high
+    @Published var coworkProjectName = "No project"
 
     let store: HarnessStore
     let runner: SessionRunner
@@ -225,6 +227,20 @@ final class AppModel: ObservableObject {
 
     var workspaceProjectPath: String {
         (try? store.session(id: sessionID)?.projectPath) ?? ""
+    }
+
+    var knownCoworkProjectFolders: [String] {
+        let path = workspaceProjectPath
+        guard !path.isEmpty else { return [] }
+        return [URL(fileURLWithPath: path).lastPathComponent]
+    }
+
+    var coworkEffortLabel: String {
+        switch reasoningEffort {
+        case .low: return "Low"
+        case .medium: return "Medium"
+        case .high, .xHigh, .default, .disabled: return "High"
+        }
     }
 }
 

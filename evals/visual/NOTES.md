@@ -1,6 +1,6 @@
 # Visual verification — `cursor/harness-architecture`
 
-Captured **2026-10-10** on macOS (arm64). Goldens from `design/product-handoff/index.html` at 1440×900 via headless Chrome + in-page route setup. Actuals from Debug `Yuzu.app` window captures (`screencapture -l <windowid>`). Routes that need a specific screen use launch env `YUZU_UI_ROUTE` (same names as `UITestRoute`); theme for captures uses `YUZU_UI_THEME=dark|light` (same as Settings → General). Scheduled nav still works from the sidebar in a normal session.
+Captured **2026-10-10** on macOS (arm64). Goldens from `design/product-handoff/index.html` at 1440×900 via headless Chrome + in-page route setup. Actuals from Debug `Yuzu.app` window captures (`screencapture -R` from Accessibility window bounds). Routes that need a specific screen use launch env `YUZU_UI_ROUTE` (same names as `UITestRoute`); theme for captures uses `YUZU_UI_THEME=dark|light` (same as Settings → General). Scheduled nav still works from the sidebar in a normal session.
 
 ## Routes captured
 
@@ -17,9 +17,9 @@ Captured **2026-10-10** on macOS (arm64). Goldens from `design/product-handoff/i
 
 ## G2 Cowork new — region check
 
-**Present in both:** 42px cowork mascot + **Good {Morning\|Afternoon\|Evening}, {first name}** (live time-of-day + Mac account name), composer placeholder **How can I help you today?**, three ideas (**Send me a daily briefing**, **Organize my inbox**, **Customize Cowork for me**) that fill the composer without sending, sidebar chrome.
+**Present in both:** 42px cowork mascot + **Good {Morning\|Afternoon\|Evening}, {first name}**, composer placeholder **How can I help you today?**, composer tool row (**+** menu with **Attach a file** / **Choose a project**, model button with **High / Medium / Low** effort for the loaded model name, **No project** / workspace project bar), three ideas that fill the composer without sending, sidebar chrome.
 
-**Still open vs golden:** SwiftUI vs HTML typography and spacing (welcome scale, composer radius, idea row layout). Full composer tool row (+ / model / project) not yet mirrored on Cowork new.
+**Still open vs golden:** SwiftUI vs HTML typography and spacing (welcome scale, composer radius, idea row art). Empty-submit toast **Write a task to get started.** not wired yet.
 
 ## G4 Scheduled empty — region check
 
@@ -29,19 +29,19 @@ Captured **2026-10-10** on macOS (arm64). Goldens from `design/product-handoff/i
 
 ## G5 Customize skills — region check
 
-**Present in both:** **Customize** title, tabs **Skills** / **Connectors** / **Plugins**, banner **Add your first skills** + **Skills teach Yuzu how you work.**, **From Yuzu · 1** with embedded **customize-yuzu** skill row (no Anthropic copy). Connectors / Plugins tabs show **No servers added.** / **No plugins yet.**
+**Present in both:** **Customize** title, tabs **Skills** / **Connectors** / **Plugins**, toolbar search / filter (**All sources**, **From Yuzu**, **From you**) / sort / **Add → Create skill**, banner **Add your first skills** + **Skills teach Yuzu how you work.**, **From Yuzu · {n}** with embedded **customize-yuzu** skill row (no Anthropic copy). Skill rows open the name/description dialog; **Create skill** uses the same dialog pattern and writes via `SkillCatalog.createProjectSkill` when submitted. Connectors / Plugins tabs show **No servers added.** / **No plugins yet.**
 
-**Still open vs golden:** golden lists many sample skills; app shows real embedded + user skills only. Toolbar search / filter / sort / **Add** not yet built. Paper-plane and row styling approximate handoff CSS but are not pixel-identical.
+**Still open vs golden:** golden lists many sample skills; app shows real embedded + user skills only. Paper-plane and row styling approximate handoff CSS but are not pixel-identical.
 
 ## G1 Code home — region check (actual vs golden)
 
 **Present in both:** cowork mascot + personalized heading, usage card with Overview/Models and All/30d/7d, six-metric grid + heatmap row, Local + folder row, code-input mascot, composer placeholder, + / Manual / model / speed **—** / High effort, sidebar traffic lights + collapse + search + mode switch + nav + Tasks heading.
 
-**Mismatches (structural / copy / metrics):**
+**Mismatches (structural / copy):**
 
-- **Metric values:** golden shows sample session totals; actual reads live store zeros and **—** placeholders (correct for empty DB, different from golden PNG).
+- **Metric values:** golden shows sample session totals; actual reads live store (zeros / **—** when empty) — correct per spec, not a UI bug.
 - **Gatsby note:** hidden at zero tokens per product spec; golden still shows the sample sentence.
-- **Heatmap:** actual renders an empty 26-cell grid; golden has level-1/2 cells on three days.
+- **Heatmap:** actual renders an empty 26-cell grid when the store has no activity; golden has sample level-1/2 cells.
 - **Model button:** shows loaded identifier `scripted`; golden uses a longer vendor-style name (substituted in product; not forbidden in app).
 - **Typography & spacing:** SwiftUI layout approximates handoff CSS but is not pixel-identical to HTML (font metrics, composer corner radius, mascot offset).
 - **Sidebar:** Tasks list body is empty until a task has messages or the thread is open; golden prototype may show sample rows when seeded.
@@ -57,12 +57,12 @@ Empty panels match in spirit (no project / no artifacts + CTA); golden uses pane
 
 ## Verdict
 
-**G2, G4, G5, G1, G3, G7, and G8** cover the required regions in dark theme with in-app navigation or launch routes; **G2 and G5** also have light actuals via `YUZU_UI_THEME=light`. **Pixel-perfect sign-off is still not met** — SwiftUI vs HTML typography/spacing, remaining light actuals for other routes, golden sample metrics/heatmap, and Cowork new composer tool row. Harness accessibility tests (V1–V8) remain green.
+**G2 and G5** composer tools and Customize toolbar match the handoff controls in dark actuals (recaptured 2026-10-10). **G2, G4, G5, G1, G3, G7, and G8** cover the required regions in dark theme with in-app navigation or launch routes; **G2 and G5** also have light actuals via `YUZU_UI_THEME=light` (light PNGs not recaptured this pass). Harness accessibility tests (V1–V8) remain green.
 
 ## Still open (summary)
 
-- Light-theme `actual/*-light.png` for routes beyond G2 and G5 (and scheduled empty).
+- Light-theme `actual/*-light.png` for routes beyond prior G2/G5 captures (and scheduled empty).
 - Pixel spacing and font metrics vs handoff HTML across all routes.
-- Cowork new composer tools (+ / model / project bar) and idea-card art.
-- Customize toolbar (search, filter, sort, Add) and skill detail dialog.
-- Code home live metrics / heatmap sample parity when DB is empty.
+- Cowork new idea-card art; empty-submit toast.
+- Code home live metrics / heatmap sample parity when DB is empty (by design — do not fake).
+- Remaining light actuals for G1, G3, G4, G6, G7, G8.

@@ -7,55 +7,196 @@ private enum CustomizeTab: String, CaseIterable {
     case plugins = "Plugins"
 }
 
+private enum SkillSourceFilter: String, CaseIterable {
+    case all = "All sources"
+    case yuzu = "From Yuzu"
+    case you = "From you"
+}
+
 struct CustomizeView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
     @State private var tab: CustomizeTab = .skills
+    @State private var searchVisible = false
+    @State private var searchQuery = ""
+    @State private var filterMenuOpen = false
+    @State private var addMenuOpen = false
+    @State private var sourceFilter: SkillSourceFilter = .all
+    @State private var skillsReversed = false
+    @State private var skillDialog: SkillDialogMode?
+    @State private var skillsRefresh = 0
 
     private var skills: [SkillRecord] {
-        SkillCatalog.discover(projectPath: model.workspaceProjectPath)
+        _ = skillsRefresh
+        return SkillCatalog.discover(projectPath: model.workspaceProjectPath)
     }
 
     private var yuzuSkills: [SkillRecord] {
-        skills.filter { $0.directoryPath.contains("EmbeddedSkills") }
+        filtered(skills.filter { $0.directoryPath.contains("EmbeddedSkills") })
     }
 
     private var userSkills: [SkillRecord] {
-        skills.filter { !$0.directoryPath.contains("EmbeddedSkills") }
+        filtered(skills.filter { !$0.directoryPath.contains("EmbeddedSkills") })
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Customize")
-                    .font(.custom("Georgia", size: 32))
-                    .foregroundStyle(colors.text)
-                    .tracking(-1.28)
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Customize")
+                        .font(.custom("Georgia", size: 32))
+                        .foregroundStyle(colors.text)
+                        .tracking(-1.28)
 
-                HStack(spacing: 2) {
-                    ForEach(CustomizeTab.allCases, id: \.self) { item in
-                        customizeTabButton(item)
+                    customizeToolbar
+                        .padding(.top, 26)
+
+                    switch tab {
+                    case .skills:
+                        skillsPanel
+                    case .connectors:
+                        otherPanel(title: "Connectors", copy: "No servers added.")
+                    case .plugins:
+                        otherPanel(title: "Plugins", copy: "No plugins yet.")
                     }
-                    Spacer()
                 }
-                .padding(.top, 26)
+                .frame(maxWidth: 1152, alignment: .leading)
+                .padding(.horizontal, 40)
+                .padding(.top, 65)
+                .padding(.bottom, 36)
+                .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-                switch tab {
-                case .skills:
-                    skillsPanel
-                case .connectors:
-                    otherPanel(title: "Connectors", copy: "No servers added.")
-                case .plugins:
-                    otherPanel(title: "Plugins", copy: "No plugins yet.")
+            if let dialog = skillDialog {
+                SkillDialogView(colors: colors, mode: dialog) {
+                    skillDialog = nil
+                    skillsRefresh += 1
                 }
             }
-            .frame(maxWidth: 1152, alignment: .leading)
-            .padding(.horizontal, 40)
-            .padding(.top, 65)
-            .padding(.bottom, 36)
-            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var customizeToolbar: some View {
+        HStack(alignment: .center, spacing: 24) {
+            HStack(spacing: 2) {
+                ForEach(CustomizeTab.allCases, id: \.self) { item in
+                    customizeTabButton(item)
+                }
+            }
+
+            Spacer()
+
+            if tab == .skills {
+                skillsActions
+            }
+        }
+    }
+
+    private var skillsActions: some View {
+        ZStack(alignment: .topTrailing) {
+            HStack(spacing: 9) {
+                Button {
+                    searchVisible.toggle()
+                    if !searchVisible { searchQuery = "" }
+                    filterMenuOpen = false
+                    addMenuOpen = false
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16))
+                        .frame(width: 35, height: 37)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .background(searchVisible ? colors.selected : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .accessibilityID("customize-search-button")
+
+                Button {
+                    filterMenuOpen.toggle()
+                    addMenuOpen = false
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16))
+                        .frame(width: 35, height: 37)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .background(filterMenuOpen ? colors.selected : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .accessibilityID("customize-filter-button")
+
+                Button {
+                    skillsReversed.toggle()
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 16))
+                        .frame(width: 35, height: 37)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .accessibilityID("customize-sort-button")
+
+                Button {
+                    addMenuOpen.toggle()
+                    filterMenuOpen = false
+                } label: {
+                    HStack(spacing: 7) {
+                        Text("Add")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                    }
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                    .padding(.horizontal, 12)
+                    .frame(minWidth: 85, minHeight: 38)
+                    .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .accessibilityID("customize-add-button")
+            }
+
+            if searchVisible {
+                TextField("Search skills", text: $searchQuery)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(width: 340)
+                    .background(colors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(colors.line, lineWidth: 1))
+                    .padding(.top, 45)
+                    .accessibilityID("customize-search-field")
+            }
+
+            if filterMenuOpen {
+                HandoffPopover(colors: colors) {
+                    HandoffMenuLabel(title: "Source", colors: colors)
+                    ForEach(SkillSourceFilter.allCases, id: \.self) { filter in
+                        HandoffPopoverRow(title: filter.rawValue, colors: colors) {
+                            sourceFilter = filter
+                            filterMenuOpen = false
+                        }
+                        .accessibilityIdentifier("customize-filter-\(filter.rawValue)")
+                    }
+                }
+                .padding(.top, 45)
+                .padding(.trailing, 100)
+            }
+
+            if addMenuOpen {
+                HandoffPopover(colors: colors) {
+                    HandoffPopoverRow(title: "Create skill", colors: colors) {
+                        addMenuOpen = false
+                        skillDialog = .create
+                    }
+                    .accessibilityID("create-skill-option")
+                }
+                .padding(.top, 45)
+            }
+        }
     }
 
     private func customizeTabButton(_ item: CustomizeTab) -> some View {
@@ -99,20 +240,34 @@ struct CustomizeView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .padding(.top, 32)
 
-            if !yuzuSkills.isEmpty {
+            if !yuzuSkills.isEmpty, sourceFilter != .you {
                 skillHeading(title: "From Yuzu", count: yuzuSkills.count)
                 ForEach(yuzuSkills, id: \.name) { skill in
                     skillRow(skill, source: "from Yuzu")
                 }
             }
 
-            if !userSkills.isEmpty {
+            if !userSkills.isEmpty, sourceFilter != .yuzu {
                 skillHeading(title: "From you", count: userSkills.count)
                 ForEach(userSkills, id: \.name) { skill in
                     skillRow(skill, source: "from you")
                 }
             }
         }
+    }
+
+    private func filtered(_ list: [SkillRecord]) -> [SkillRecord] {
+        var result = list
+        let term = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !term.isEmpty {
+            result = result.filter {
+                $0.name.lowercased().contains(term) || $0.description.lowercased().contains(term)
+            }
+        }
+        if skillsReversed {
+            result.reverse()
+        }
+        return result
     }
 
     private func otherPanel(title: String, copy: String) -> some View {
@@ -148,7 +303,9 @@ struct CustomizeView: View {
     }
 
     private func skillRow(_ skill: SkillRecord, source: String) -> some View {
-        Button {} label: {
+        Button {
+            skillDialog = .detail(name: skill.name, description: skill.description)
+        } label: {
             HStack(alignment: .center, spacing: 20) {
                 Image(systemName: "puzzlepiece.extension")
                     .font(.system(size: 18))

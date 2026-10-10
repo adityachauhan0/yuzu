@@ -24,6 +24,8 @@
 		907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2891A541671BDA8F63B24C50 /* CodeHomeView.swift */; };
 		98C876651522E56C43513FCE /* RootShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A591E69A9AD62982B71B2 /* RootShellView.swift */; };
 		AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */; };
+		B1C2D3E4F5061728394A5B6C /* HandoffPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */; };
+		B2C3D4E5F60718293A4B5C6D /* SkillDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */; };
 		B6FC6DBF59B421A802ECE1C2 /* YuzuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401FC88A8CEE39936B0187D0 /* YuzuApp.swift */; };
 		D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF17718930133925C4F8BBE /* AccessibilityID.swift */; };
 		DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */; };
@@ -67,6 +69,8 @@
 		D50761F9AA523F42E1100484 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDialog.swift; sourceTree = "<group>"; };
 		E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomizeView.swift; sourceTree = "<group>"; };
+		C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffPopover.swift; sourceTree = "<group>"; };
+		D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillDialogView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +154,8 @@
 				3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */,
 				89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */,
 				E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */,
+				C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */,
+				D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
 				DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */,
 				3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */,
@@ -288,6 +294,8 @@
 				907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */,
 				074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */,
 				AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */,
+				B1C2D3E4F5061728394A5B6C /* HandoffPopover.swift in Sources */,
+				B2C3D4E5F60718293A4B5C6D /* SkillDialogView.swift in Sources */,
 				98C876651522E56C43513FCE /* RootShellView.swift in Sources */,
 				EE04C56F67291DA4F36539E5 /* SettingsDialog.swift in Sources */,
 				DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */,
