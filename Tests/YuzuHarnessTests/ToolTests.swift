@@ -72,6 +72,7 @@ struct ToolTests {
         )
         let result = tools.executeAfterApproval(call: call)
         #expect(result.contains("Error"))
+        #expect(result.contains("appears 2 times"))
         #expect(try String(contentsOf: file, encoding: .utf8) == "needle needle")
     }
 
@@ -91,6 +92,7 @@ struct ToolTests {
             ])
         )
         let result = tools.executeAfterApproval(call: call)
+        #expect(result.contains("Edited"))
         #expect(result.contains("pin"))
         #expect(try String(contentsOf: file, encoding: .utf8) == "before pin after")
     }
@@ -123,7 +125,11 @@ struct ToolTests {
         )
         let result = tools.executeAfterApproval(call: call)
         let expected = ProjectPaths.projectRootURL(path: project.path).path
+        let processCWD = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).standardizedFileURL.path
         #expect(result.contains(expected))
+        if processCWD != expected {
+            #expect(!result.contains(processCWD))
+        }
     }
 
     @Test func T7_bashTimesOut() async throws {
