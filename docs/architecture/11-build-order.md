@@ -4,6 +4,8 @@ Each slice is a running app. Later slices add services behind the same session d
 
 The window for every slice is the handoff in `design/product-handoff/`, specified in [UI](12-ui.md). A slice may hide a page that has no data yet. It may not invent a different shell. Empty pages use the prototype’s empty copy.
 
+A slice is finished only when its evals in [Implementation](13-implementation.md) are green. The next slice does not start on a red eval.
+
 ## 1. Model-turn spike
 
 Load one small tool-capable model. Send one `withToolNamespaces` schema. Register no foreign tool. Set `toolTurnLimit` to 0. Confirm `toolCalls()` is populated and a hand-built `toolCallResult` on the next `reply` produces a final answer.

@@ -18,6 +18,7 @@ The shape comes from [OpenCode](https://github.com/anomalyco/opencode) (`anomaly
 10. [Client](10-client.md) — events the UI is allowed to see
 11. [UI](12-ui.md) — the Code / Cowork window. Looks match the handoff; reference ids are resolved there
 12. [Build order](11-build-order.md) — how the complete harness is sliced into working apps
+13. [Implementation](13-implementation.md) — file layout, interfaces, and the evals a slice must pass
 
 ## Module map
 
