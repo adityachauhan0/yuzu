@@ -173,7 +173,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                     store: store,
                     sessionID: sessionID,
                     epochID: session.epochID,
-                    projectPath: session.projectPath
+                    projectPath: session.projectPath,
+                    agentID: session.agentID
                 )
             } catch {
                 break loop
@@ -318,7 +319,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                         store: store,
                         sessionID: sessionID,
                         epochID: session.epochID,
-                        projectPath: session.projectPath
+                        projectPath: session.projectPath,
+                        agentID: session.agentID
                     )
                 } catch {
                     return false

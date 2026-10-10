@@ -2,6 +2,7 @@ import Foundation
 
 public enum ContextSourceKey: String, Sendable, Codable, CaseIterable {
     case instructions = "core/instructions"
+    case skillGuidance = "core/skill-guidance"
     case workspace = "core/workspace"
     case date = "core/date"
 }
@@ -46,12 +47,13 @@ public struct ContextCoordinator: Sendable {
         store: HarnessStore,
         sessionID: String,
         epochID: String,
-        projectPath: String
+        projectPath: String,
+        agentID: String
     ) throws -> ContextBoundaryResult {
         let existing = try store.epochRecord(sessionID: sessionID, epochID: epochID)
         let loaded: [ContextSourceKey: String]
         do {
-            loaded = try loadSources(projectPath: projectPath, fallback: existing)
+            loaded = try loadSources(projectPath: projectPath, agentID: agentID, fallback: existing)
         } catch {
             if existing == nil {
                 return ContextBoundaryResult(blocked: true, baselinePrepended: false)
@@ -139,6 +141,7 @@ public struct ContextCoordinator: Sendable {
 
     private func loadSources(
         projectPath: String,
+        agentID: String,
         fallback: EpochRecord?
     ) throws -> [ContextSourceKey: String] {
         let previous = fallback.map { decodeSnapshots($0.snapshotsJSON) } ?? [:]
@@ -170,6 +173,8 @@ public struct ContextCoordinator: Sendable {
             }
         }
 
+        map[.skillGuidance] = SkillCatalog.renderGuidance(agentID: agentID, projectPath: projectPath)
+
         map[.workspace] = WorkspaceSource.render(projectPath: projectPath)
         map[.date] = DateSource.render()
         return map
@@ -193,6 +198,9 @@ public struct ContextCoordinator: Sendable {
         if let instructions = sources[.instructions], !instructions.isEmpty {
             parts.append(instructions)
         }
+        if let skillGuidance = sources[.skillGuidance], !skillGuidance.isEmpty {
+            parts.append(skillGuidance)
+        }
         if let workspace = sources[.workspace], !workspace.isEmpty {
             parts.append(workspace)
         }
@@ -210,6 +218,8 @@ public struct ContextCoordinator: Sendable {
             \(newValue)
             </file>
             """
+        case .skillGuidance:
+            return newValue
         case .workspace:
             return newValue
         case .date:

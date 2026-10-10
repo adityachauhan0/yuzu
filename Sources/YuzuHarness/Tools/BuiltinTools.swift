@@ -92,6 +92,21 @@ enum BuiltinTools {
         ])
     )
 
+    static let skill = ToolDefinition(
+        name: "skill",
+        description: "Load one skill body by name.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "name": .object([
+                    "type": .string("string"),
+                    "description": .string("Skill name"),
+                ]),
+            ]),
+            "required": .array([.string("name")]),
+        ])
+    )
+
     static let grep = ToolDefinition(
         name: "grep",
         description: "Search file contents inside the project.",
@@ -125,6 +140,8 @@ enum BuiltinTools {
             return executeEdit(arguments: arguments, projectPath: projectPath)
         case "bash":
             return executeBash(arguments: arguments, projectPath: projectPath)
+        case "skill":
+            return executeSkill(arguments: arguments, projectPath: projectPath)
         default:
             return "Unknown tool"
         }
@@ -209,6 +226,13 @@ enum BuiltinTools {
             return nil
         }
         return value
+    }
+
+    private static func executeSkill(arguments: JSONValue, projectPath: String) -> String {
+        guard let name = stringArg(arguments, key: "name") else {
+            return "Error: missing name"
+        }
+        return SkillCatalog.skillToolResult(name: name, projectPath: projectPath)
     }
 
     private static func executeRead(arguments: JSONValue, projectPath: String) -> String {

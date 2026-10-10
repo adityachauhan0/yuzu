@@ -20,6 +20,9 @@ let package = Package(
             name: "YuzuHarness",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
+            ],
+            resources: [
+                .copy("EmbeddedSkills"),
             ]
         ),
         .target(

@@ -10,7 +10,7 @@ public struct MaterializedTools: Sendable {
     public let manualPressed: Bool
 
     private static let registeredBuiltinNames: Set<String> = [
-        "read", "glob", "grep", "write", "edit", "bash",
+        "read", "glob", "grep", "write", "edit", "bash", "skill",
     ]
 
     private func deliver(call: ToolCall) -> String {
@@ -53,6 +53,13 @@ public struct MaterializedTools: Sendable {
 }
 
 public enum ToolRegistry {
+    private static func shouldMaterializeSkill(agent: Agent, projectPath: String) -> Bool {
+        if PermissionEvaluator.evaluateRules(agent.rules, action: "skill", resource: "*") == .deny {
+            return false
+        }
+        return !SkillCatalog.allowedSkills(rules: agent.rules, projectPath: projectPath).isEmpty
+    }
+
     private static let gatedBuiltins: [(ToolDefinition, String)] = [
         (BuiltinTools.read, "read"),
         (BuiltinTools.glob, "glob"),
@@ -81,6 +88,12 @@ public enum ToolRegistry {
             }
             definitions.append(tool)
             allowed.insert(tool.name)
+        }
+        if onlyNames == nil || onlyNames?.contains(BuiltinTools.skill.name) == true {
+            if shouldMaterializeSkill(agent: agent, projectPath: projectPath) {
+                definitions.append(BuiltinTools.skill)
+                allowed.insert(BuiltinTools.skill.name)
+            }
         }
         return MaterializedTools(
             definitions: definitions,

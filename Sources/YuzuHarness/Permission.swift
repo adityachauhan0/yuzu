@@ -104,6 +104,8 @@ public enum PermissionGate {
             return [stringField(arguments, key: "path") ?? "*"]
         case "bash":
             return [stringField(arguments, key: "command") ?? "*"]
+        case "skill":
+            return [stringField(arguments, key: "name") ?? "*"]
         default:
             return ["*"]
         }
