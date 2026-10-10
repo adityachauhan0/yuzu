@@ -22,6 +22,11 @@ struct CoworkHomeView: View {
             Spacer()
         }
         .padding(.horizontal, 24)
+        .onChange(of: model.coworkSeed) { _, seed in
+            guard let seed else { return }
+            prompt = seed
+            model.coworkSeed = nil
+        }
     }
 
     private var welcomeHeading: some View {
@@ -229,6 +234,11 @@ struct CoworkHomeView: View {
                 projectMenuOpen = false
             }
             .accessibilityID("cowork-project-none")
+            HandoffPopoverRow(title: "Choose a folder", colors: colors) {
+                projectMenuOpen = false
+                chooseProjectFolder()
+            }
+            .accessibilityID("cowork-choose-folder")
         }
     }
 
@@ -262,9 +272,12 @@ struct CoworkHomeView: View {
     }
 
     private func sendTask() {
+        let attachment = attachedFiles.map { "Attached file: \($0)" }.joined(separator: "\n")
+        let body = [prompt, attachment].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.joined(separator: "\n")
         Task {
-            if await model.submitCoworkHomeTask(prompt) {
+            if await model.submitCoworkHomeTask(body) {
                 prompt = ""
+                attachedFiles = []
             }
         }
     }
@@ -274,6 +287,16 @@ struct CoworkHomeView: View {
         case "Low": return .low
         case "Medium": return .medium
         default: return .high
+        }
+    }
+
+    private func chooseProjectFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            model.setProjectFolder(url)
         }
     }
 

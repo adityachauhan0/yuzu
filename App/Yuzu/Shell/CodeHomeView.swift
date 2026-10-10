@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import YuzuHarness
 
@@ -17,7 +18,7 @@ struct CodeHomeView: View {
     let colors: ThemeColors
     @State private var prompt = ""
     @State private var usageTab: CodeUsageTab = .overview
-    @State private var usagePeriod: CodeUsagePeriod = .all
+    @State private var modelMenuOpen = false
 
     private var isDark: Bool { model.theme == .dark }
 
@@ -117,9 +118,9 @@ struct CodeHomeView: View {
     }
 
     private func usagePeriodButton(_ period: CodeUsagePeriod) -> some View {
-        let selected = usagePeriod == period
+        let selected = model.usagePeriod == period
         return Button {
-            usagePeriod = period
+            model.usagePeriod = period
         } label: {
             Text(period.rawValue)
                 .font(.system(size: 14))
@@ -134,16 +135,17 @@ struct CodeHomeView: View {
 
     private var overviewPanel: some View {
         VStack(alignment: .leading, spacing: 7) {
+            let metrics = model.usageMetrics(period: model.usagePeriod)
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 3),
                 spacing: 5
             ) {
-                codeMetric("Sessions", value: "0")
-                codeMetric("Messages", value: "0")
-                codeMetric("Total tokens", value: "0")
-                codeMetric("Active days", value: "0")
-                codeMetric("Peak hour", value: "—")
-                codeMetric("Favorite model", value: "—", small: true)
+                codeMetric("Sessions", value: "\(metrics.sessions)")
+                codeMetric("Messages", value: "\(metrics.messages)")
+                codeMetric("Total tokens", value: "\(metrics.tokens)")
+                codeMetric("Active days", value: "\(metrics.activeDays)")
+                codeMetric("Peak hour", value: metrics.peakHour)
+                codeMetric("Favorite model", value: metrics.favoriteModel, small: true)
             }
 
             heatmap
@@ -222,6 +224,7 @@ struct CodeHomeView: View {
                 .accessibilityID("code-local")
 
                 Button {
+                    chooseCodeFolder()
                 } label: {
                     Label(model.codeFolderName, systemImage: "folder")
                         .font(.system(size: 14))
@@ -277,12 +280,16 @@ struct CodeHomeView: View {
             }
 
             HStack(spacing: 11) {
-                Button("+") {}
-                    .buttonStyle(.plain)
-                    .font(.system(size: 23))
-                    .foregroundStyle(colors.dim)
-                    .frame(width: 26)
-                    .accessibilityLabel("Add context")
+                Button {
+                    attachContext()
+                } label: {
+                    Text("+")
+                        .font(.system(size: 23))
+                        .foregroundStyle(colors.dim)
+                        .frame(width: 26)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add context")
 
                 Button {
                     Task { await model.toggleManual() }
@@ -300,28 +307,86 @@ struct CodeHomeView: View {
                 Spacer()
 
                 HStack(spacing: 5) {
-                    Button(model.modelDisplayName) {}
-                        .buttonStyle(.plain)
-                        .font(.system(size: 14))
-                        .foregroundStyle(colors.text)
-                        .lineLimit(1)
-                        .accessibilityID("code-model-button")
+                    Button {
+                        modelMenuOpen.toggle()
+                    } label: {
+                        Text(model.modelDisplayName)
+                            .font(.system(size: 14))
+                            .foregroundStyle(colors.text)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityID("code-model-button")
 
-                    Text("—")
+                    Text(model.speedLabel)
                         .font(.system(size: 11))
                         .foregroundStyle(colors.dim)
-                        .accessibilityID("code-speed", label: "speed —")
+                        .accessibilityID("code-speed", label: model.speedLabel == "—" ? "speed —" : "speed \(model.speedLabel)")
                 }
 
-                Button("High") {}
-                    .buttonStyle(.plain)
-                    .font(.system(size: 14))
-                    .foregroundStyle(colors.text)
-                    .padding(.horizontal, 4)
-                    .accessibilityID("code-effort")
+                Button {
+                    modelMenuOpen.toggle()
+                } label: {
+                    Text(model.coworkEffortLabel)
+                        .font(.system(size: 14))
+                        .foregroundStyle(colors.text)
+                        .padding(.horizontal, 4)
+                }
+                .buttonStyle(.plain)
+                .accessibilityID("code-effort")
             }
             .padding(.top, 5)
         }
         .padding(.top, 20)
+        .overlay(alignment: .bottomTrailing) {
+            if modelMenuOpen {
+                HandoffPopover(colors: colors) {
+                    HandoffMenuLabel(title: "Model and effort", colors: colors)
+                    ForEach(["High", "Medium", "Low"], id: \.self) { effort in
+                        HandoffPopoverRow(
+                            title: "\(model.modelDisplayName) · \(effort)",
+                            colors: colors
+                        ) {
+                            model.reasoningEffort = codeEffort(effort)
+                            modelMenuOpen = false
+                        }
+                    }
+                }
+                .padding(.bottom, 36)
+            }
+        }
+    }
+
+    private func codeEffort(_ label: String) -> ReasoningEffort {
+        switch label {
+        case "Low": return .low
+        case "Medium": return .medium
+        default: return .high
+        }
+    }
+
+    private func chooseCodeFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            model.setProjectFolder(url)
+        }
+    }
+
+    private func attachContext() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK {
+            let paths = panel.urls.map(\.path).joined(separator: "\n")
+            if prompt.isEmpty {
+                prompt = paths
+            } else {
+                prompt += "\n" + paths
+            }
+        }
     }
 }

@@ -8,25 +8,28 @@
 
 /* Begin PBXBuildFile section */
 		074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */; };
-		0A1B2C3D4E5F6789012345A /* AccountName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7890123456AB /* AccountName.swift */; };
-		0B1C2D3E4F5061728394A5B6 /* HandoffImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */; };
-		1C2D3E4F5061728394A5B6C7D /* HandoffIllustrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */; };
-		3C4D5E6F708192A3B4C5D6E7 /* cowork-logo.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */; };
-		5E6F708192A3B4C5D6E7F809 /* cowork-logo-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = 6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */; };
-		708192A3B4C5D6E7F8091A2B /* code-input-mascot.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */; };
-		92A3B4C5D6E7F8091A2B3C4D /* code-input-mascot-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = A3B4C5D6E7F8091A2B3C4D5E /* code-input-mascot-light.svg */; };
 		089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB02AD51F4822A0DF5D67091 /* AppModel.swift */; };
+		0D4440D354CF6DE8C8EDED64 /* AccountName.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B4103959F0B2210F00A0F9 /* AccountName.swift */; };
+		157BD5AC04C649848560613C /* cowork-logo.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7DAB8CD7BF82F37988E517AA /* cowork-logo.svg */; };
 		19F67E222F0B9B73FD12E622 /* YuzuHarness in Frameworks */ = {isa = PBXBuildFile; productRef = 852615B4B85114DD92A4FF87 /* YuzuHarness */; };
+		1A5E2AC42E1442AE12940AD7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2491A75CCEC407DA26E5059E /* Assets.xcassets */; };
+		2105BEC63DD2C94E16BDB40A /* code-input-mascot.svg in Resources */ = {isa = PBXBuildFile; fileRef = B43E301AEA93012CE341028E /* code-input-mascot.svg */; };
+		3018B85DE91ABAE110769518 /* RealityEvalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679A6099E5921957A4FD3CDF /* RealityEvalTests.swift */; };
+		45FEE2BDF97DAC96058DF547 /* HandoffPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */; };
 		570FF340E02320253373E290 /* TaskThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC6824C46709AB5927357B56 /* TaskThreadView.swift */; };
+		5E2483F700DD7786F9819739 /* code-input-mascot-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = B780E7652ACAC329B417C07F /* code-input-mascot-light.svg */; };
+		65A7360BFA9CD6182ABA8210 /* HandoffImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D31CADE7C7EFEBEB3AD0C6F /* HandoffImage.swift */; };
 		69C3882B2C6A3DA688FEC213 /* VisualEvalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */; };
+		7364C0EDA68E7A9D3CFBBC3A /* HandoffIllustrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09EFF0547FAEFF791BD1BDDF /* HandoffIllustrations.swift */; };
 		7AD3BA247B3E18F49AE28C6E /* YuzuHarness in Frameworks */ = {isa = PBXBuildFile; productRef = C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */; };
+		7EF4A93C5DDCBFB33252ED00 /* HandoffToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC3AA2F66A5F5EEEC2CF3F0 /* HandoffToast.swift */; };
 		8A3F3C66D09C63B227D4BF24 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50761F9AA523F42E1100484 /* Theme.swift */; };
+		8EB41C9372292C843A37B7A5 /* cowork-logo-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = 432DDF2E2265082846E9437F /* cowork-logo-light.svg */; };
 		907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2891A541671BDA8F63B24C50 /* CodeHomeView.swift */; };
 		98C876651522E56C43513FCE /* RootShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A591E69A9AD62982B71B2 /* RootShellView.swift */; };
+		A770A6E58E2F75EF29A4234C /* SkillDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9E8C2918F65348B78410BE /* SkillDialogView.swift */; };
 		AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */; };
-		B1C2D3E4F5061728394A5B6C /* HandoffPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */; };
-		F1E2D3C4B5A69788695041322 /* HandoffToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D3C4B5A6978869504132F10 /* HandoffToast.swift */; };
-		B2C3D4E5F60718293A4B5C6D /* SkillDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */; };
+		B297290D5A2F94FEB0C2CA7E /* YuzuModel in Frameworks */ = {isa = PBXBuildFile; productRef = DF6E2EC1094D6C5365FB8C2D /* YuzuModel */; };
 		B6FC6DBF59B421A802ECE1C2 /* YuzuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401FC88A8CEE39936B0187D0 /* YuzuApp.swift */; };
 		D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF17718930133925C4F8BBE /* AccessibilityID.swift */; };
 		DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */; };
@@ -46,33 +49,35 @@
 
 /* Begin PBXFileReference section */
 		04717245065E78C16C21A7C0 /* Yuzu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yuzu.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		1A2B3C4D5E6F7890123456AB /* AccountName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountName.swift; sourceTree = "<group>"; };
-		2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffImage.swift; sourceTree = "<group>"; };
-		3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffIllustrations.swift; sourceTree = "<group>"; };
-		4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = cowork-logo.svg; sourceTree = "<group>"; };
-		6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = cowork-logo-light.svg; sourceTree = "<group>"; };
-		8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = code-input-mascot.svg; sourceTree = "<group>"; };
-		A3B4C5D6E7F8091A2B3C4D5E /* code-input-mascot-light.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = code-input-mascot-light.svg; sourceTree = "<group>"; };
+		09EFF0547FAEFF791BD1BDDF /* HandoffIllustrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffIllustrations.swift; sourceTree = "<group>"; };
+		2491A75CCEC407DA26E5059E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2891A541671BDA8F63B24C50 /* CodeHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeHomeView.swift; sourceTree = "<group>"; };
+		3D31CADE7C7EFEBEB3AD0C6F /* HandoffImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffImage.swift; sourceTree = "<group>"; };
 		3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		401FC88A8CEE39936B0187D0 /* YuzuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuzuApp.swift; sourceTree = "<group>"; };
+		432DDF2E2265082846E9437F /* cowork-logo-light.svg */ = {isa = PBXFileReference; path = "cowork-logo-light.svg"; sourceTree = "<group>"; };
+		5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffPopover.swift; sourceTree = "<group>"; };
+		679A6099E5921957A4FD3CDF /* RealityEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealityEvalTests.swift; sourceTree = "<group>"; };
 		6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEvalTests.swift; sourceTree = "<group>"; };
+		6CC3AA2F66A5F5EEEC2CF3F0 /* HandoffToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffToast.swift; sourceTree = "<group>"; };
 		6D6A591E69A9AD62982B71B2 /* RootShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootShellView.swift; sourceTree = "<group>"; };
 		7002D0706CAA850244B41B33 /* Yuzu.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Yuzu.entitlements; sourceTree = "<group>"; };
 		75773A8409E329362184411A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7DAB8CD7BF82F37988E517AA /* cowork-logo.svg */ = {isa = PBXFileReference; path = "cowork-logo.svg"; sourceTree = "<group>"; };
 		7DF17718930133925C4F8BBE /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoworkHomeView.swift; sourceTree = "<group>"; };
 		A4153CC42FF556238F8215E6 /* yuzu */ = {isa = PBXFileReference; lastKnownFileType = folder; name = yuzu; path = ..; sourceTree = SOURCE_ROOT; };
+		B43E301AEA93012CE341028E /* code-input-mascot.svg */ = {isa = PBXFileReference; path = "code-input-mascot.svg"; sourceTree = "<group>"; };
 		B55399731AF77487B4742013 /* ViewTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewTestHost.swift; sourceTree = "<group>"; };
+		B780E7652ACAC329B417C07F /* code-input-mascot-light.svg */ = {isa = PBXFileReference; path = "code-input-mascot-light.svg"; sourceTree = "<group>"; };
 		BC6824C46709AB5927357B56 /* TaskThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskThreadView.swift; sourceTree = "<group>"; };
 		CB02AD51F4822A0DF5D67091 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		CB7BDBDECB42A957346DC60E /* YuzuTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YuzuTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D50761F9AA523F42E1100484 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDialog.swift; sourceTree = "<group>"; };
 		E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomizeView.swift; sourceTree = "<group>"; };
-		C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffPopover.swift; sourceTree = "<group>"; };
-		E2D3C4B5A6978869504132F10 /* HandoffToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffToast.swift; sourceTree = "<group>"; };
-		D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillDialogView.swift; sourceTree = "<group>"; };
+		E7B4103959F0B2210F00A0F9 /* AccountName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountName.swift; sourceTree = "<group>"; };
+		FC9E8C2918F65348B78410BE /* SkillDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillDialogView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,12 +94,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				7AD3BA247B3E18F49AE28C6E /* YuzuHarness in Frameworks */,
+				B297290D5A2F94FEB0C2CA7E /* YuzuModel in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		04C74FD4B71194827E0F7A34 /* Handoff */ = {
+			isa = PBXGroup;
+			children = (
+				B780E7652ACAC329B417C07F /* code-input-mascot-light.svg */,
+				B43E301AEA93012CE341028E /* code-input-mascot.svg */,
+				432DDF2E2265082846E9437F /* cowork-logo-light.svg */,
+				7DAB8CD7BF82F37988E517AA /* cowork-logo.svg */,
+			);
+			path = Handoff;
+			sourceTree = "<group>";
+		};
 		068858506E36F649C61DF998 /* Testing */ = {
 			isa = PBXGroup;
 			children = (
@@ -117,10 +134,11 @@
 			isa = PBXGroup;
 			children = (
 				CB02AD51F4822A0DF5D67091 /* AppModel.swift */,
+				2491A75CCEC407DA26E5059E /* Assets.xcassets */,
 				75773A8409E329362184411A /* Info.plist */,
 				7002D0706CAA850244B41B33 /* Yuzu.entitlements */,
 				401FC88A8CEE39936B0187D0 /* YuzuApp.swift */,
-				C5D6E7F8091A2B3C4D5E6F70 /* Handoff */,
+				04C74FD4B71194827E0F7A34 /* Handoff */,
 				5D38B6857571D8E208F7D251 /* Shell */,
 				068858506E36F649C61DF998 /* Testing */,
 				93712F4A7BAB65982FD7AB6A /* Theme */,
@@ -128,20 +146,10 @@
 			path = Yuzu;
 			sourceTree = "<group>";
 		};
-		C5D6E7F8091A2B3C4D5E6F70 /* Handoff */ = {
-			isa = PBXGroup;
-			children = (
-				4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */,
-				6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */,
-				8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */,
-				A3B4C5D6E7F8091A2B3C4D5E /* code-input-mascot-light.svg */,
-			);
-			path = Handoff;
-			sourceTree = "<group>";
-		};
 		597585E242451AEBCE68BEC7 /* YuzuTests */ = {
 			isa = PBXGroup;
 			children = (
+				679A6099E5921957A4FD3CDF /* RealityEvalTests.swift */,
 				6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */,
 			);
 			path = YuzuTests;
@@ -150,18 +158,18 @@
 		5D38B6857571D8E208F7D251 /* Shell */ = {
 			isa = PBXGroup;
 			children = (
-				1A2B3C4D5E6F7890123456AB /* AccountName.swift */,
+				E7B4103959F0B2210F00A0F9 /* AccountName.swift */,
 				2891A541671BDA8F63B24C50 /* CodeHomeView.swift */,
-				2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */,
-				3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */,
 				89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */,
 				E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */,
-				C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */,
-				E2D3C4B5A6978869504132F10 /* HandoffToast.swift */,
-				D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */,
+				09EFF0547FAEFF791BD1BDDF /* HandoffIllustrations.swift */,
+				3D31CADE7C7EFEBEB3AD0C6F /* HandoffImage.swift */,
+				5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */,
+				6CC3AA2F66A5F5EEEC2CF3F0 /* HandoffToast.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
 				DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */,
 				3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */,
+				FC9E8C2918F65348B78410BE /* SkillDialogView.swift */,
 				BC6824C46709AB5927357B56 /* TaskThreadView.swift */,
 			);
 			path = Shell;
@@ -200,8 +208,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C8AFDA09FCD86642058F12AF /* Build configuration list for PBXNativeTarget "Yuzu" */;
 			buildPhases = (
-				D6E7F8091A2B3C4D5E6F7081 /* Resources */,
 				7D35B5C02B2031D36486D74D /* Sources */,
+				0A8B4E7B615CB54BD3D10017 /* Resources */,
 				8FC4946FE250347E2DB33FC1 /* Frameworks */,
 			);
 			buildRules = (
@@ -211,6 +219,7 @@
 			name = Yuzu;
 			packageProductDependencies = (
 				C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */,
+				DF6E2EC1094D6C5365FB8C2D /* YuzuModel */,
 			);
 			productName = Yuzu;
 			productReference = 04717245065E78C16C21A7C0 /* Yuzu.app */;
@@ -271,14 +280,15 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		D6E7F8091A2B3C4D5E6F7081 /* Resources */ = {
+		0A8B4E7B615CB54BD3D10017 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3C4D5E6F708192A3B4C5D6E7 /* cowork-logo.svg in Resources */,
-				5E6F708192A3B4C5D6E7F809 /* cowork-logo-light.svg in Resources */,
-				708192A3B4C5D6E7F8091A2B /* code-input-mascot.svg in Resources */,
-				92A3B4C5D6E7F8091A2B3C4D /* code-input-mascot-light.svg in Resources */,
+				1A5E2AC42E1442AE12940AD7 /* Assets.xcassets in Resources */,
+				5E2483F700DD7786F9819739 /* code-input-mascot-light.svg in Resources */,
+				2105BEC63DD2C94E16BDB40A /* code-input-mascot.svg in Resources */,
+				8EB41C9372292C843A37B7A5 /* cowork-logo-light.svg in Resources */,
+				157BD5AC04C649848560613C /* cowork-logo.svg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -289,20 +299,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0A1B2C3D4E5F6789012345A /* AccountName.swift in Sources */,
 				D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */,
+				0D4440D354CF6DE8C8EDED64 /* AccountName.swift in Sources */,
 				089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */,
-				0B1C2D3E4F5061728394A5B6 /* HandoffImage.swift in Sources */,
-				1C2D3E4F5061728394A5B6C7D /* HandoffIllustrations.swift in Sources */,
 				907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */,
 				074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */,
 				AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */,
-				B1C2D3E4F5061728394A5B6C /* HandoffPopover.swift in Sources */,
-				F1E2D3C4B5A69788695041322 /* HandoffToast.swift in Sources */,
-				B2C3D4E5F60718293A4B5C6D /* SkillDialogView.swift in Sources */,
+				7364C0EDA68E7A9D3CFBBC3A /* HandoffIllustrations.swift in Sources */,
+				65A7360BFA9CD6182ABA8210 /* HandoffImage.swift in Sources */,
+				45FEE2BDF97DAC96058DF547 /* HandoffPopover.swift in Sources */,
+				7EF4A93C5DDCBFB33252ED00 /* HandoffToast.swift in Sources */,
 				98C876651522E56C43513FCE /* RootShellView.swift in Sources */,
 				EE04C56F67291DA4F36539E5 /* SettingsDialog.swift in Sources */,
 				DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */,
+				A770A6E58E2F75EF29A4234C /* SkillDialogView.swift in Sources */,
 				570FF340E02320253373E290 /* TaskThreadView.swift in Sources */,
 				8A3F3C66D09C63B227D4BF24 /* Theme.swift in Sources */,
 				EC794C64468DFC13B4161C35 /* ViewTestHost.swift in Sources */,
@@ -314,6 +324,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3018B85DE91ABAE110769518 /* RealityEvalTests.swift in Sources */,
 				69C3882B2C6A3DA688FEC213 /* VisualEvalTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -575,6 +586,10 @@
 		C4C0BAE7A849AB4D5EF68F9B /* YuzuHarness */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = YuzuHarness;
+		};
+		DF6E2EC1094D6C5365FB8C2D /* YuzuModel */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YuzuModel;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -18,7 +18,7 @@ class Handler(BaseHTTPRequestHandler):
             if OAUTH_CHALLENGE:
                 self.send_header(
                     "WWW-Authenticate",
-                    'Bearer realm="mcp", authorization_uri="http://127.0.0.1/oauth"',
+                    'Bearer realm="mcp", authorization_uri="http://127.0.0.1/oauth", token_uri="http://127.0.0.1/token"',
                 )
             self.end_headers()
             return

@@ -5,6 +5,15 @@ public struct SkillRecord: Sendable, Equatable {
     public var description: String
     public var body: String
     public var directoryPath: String
+    public var slash: Bool
+
+    public init(name: String, description: String, body: String, directoryPath: String, slash: Bool = false) {
+        self.name = name
+        self.description = description
+        self.body = body
+        self.directoryPath = directoryPath
+        self.slash = slash
+    }
 }
 
 public enum SkillCatalog {
@@ -185,11 +194,13 @@ public enum SkillCatalog {
         }
         guard let resolvedName = name else { return nil }
         let description = parsed.frontmatter["description"] ?? ""
+        let slash = parsed.frontmatter["slash"]?.lowercased() == "true"
         return SkillRecord(
             name: resolvedName,
             description: description,
             body: parsed.body.trimmingCharacters(in: .whitespacesAndNewlines),
-            directoryPath: directory
+            directoryPath: directory,
+            slash: slash
         )
     }
 
@@ -240,5 +251,28 @@ enum SkillFrontmatter {
             map[key] = value
         }
         return Parsed(frontmatter: [:], body: text)
+    }
+}
+
+public enum ComposerCommands {
+    /// `/name` plus an optional tail. Nil when the text is not a slash command.
+    public static func command(_ text: String) -> (name: String, tail: String)? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/"), trimmed.count > 1 else { return nil }
+        let rest = trimmed.dropFirst()
+        let parts = rest.split(maxSplits: 1, whereSeparator: { $0 == " " || $0 == "\n" })
+        guard let first = parts.first else { return nil }
+        let name = String(first)
+        guard !name.isEmpty else { return nil }
+        let tail = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        return (name, tail)
+    }
+
+    /// A skill with `slash: true` admits its body. Other skills stay a tool call.
+    public static func skillExpansion(text: String, skills: [SkillRecord]) -> String? {
+        guard let command = command(text) else { return nil }
+        guard let skill = skills.first(where: { $0.slash && $0.name == command.name }) else { return nil }
+        if command.tail.isEmpty { return skill.body }
+        return skill.body + "\n\n" + command.tail
     }
 }

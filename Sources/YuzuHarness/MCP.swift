@@ -16,6 +16,16 @@ public struct MCPServerConfig: Sendable, Equatable {
         self.transport = transport
         self.timeout = timeout
     }
+
+    public func addingBearerToken(_ token: String) -> MCPServerConfig {
+        switch transport {
+        case .http(let url, var headers):
+            headers["Authorization"] = "Bearer \(token)"
+            return MCPServerConfig(name: name, transport: .http(url: url, headers: headers), timeout: timeout)
+        case .stdio:
+            return self
+        }
+    }
 }
 
 public enum MCPConnectionStatus: Sendable, Equatable {
@@ -50,6 +60,9 @@ public final class MCPHub: @unchecked Sendable {
         var servers: [String: ServerState] = [:]
         var staleHarnessNames: Set<String> = []
         var needsAuthServers: Set<String> = []
+        var authorizationURIs: [String: String] = [:]
+        var tokenURIs: [String: String] = [:]
+        var pendingConfigs: [String: MCPServerConfig] = [:]
     }
 
     private let lock = OSAllocatedUnfairLock(initialState: HubState())
@@ -72,9 +85,16 @@ public final class MCPHub: @unchecked Sendable {
 
         do {
             try await finishConnect(config: config, session: session, projectPath: projectPath)
-        } catch MCPError.needsAuthentication {
+        } catch let MCPError.needsAuthentication(challenge) {
             lock.withLock { state in
                 state.needsAuthServers.insert(config.name)
+                state.pendingConfigs[config.name] = config
+                if let uri = challenge.authorizationURI {
+                    state.authorizationURIs[config.name] = uri
+                }
+                if let tokenURI = challenge.tokenURI {
+                    state.tokenURIs[config.name] = tokenURI
+                }
                 session.close()
             }
         }
@@ -148,6 +168,35 @@ public final class MCPHub: @unchecked Sendable {
         }
     }
 
+    public func authorizationURI(serverName: String) -> String? {
+        lock.withLock { state in
+            state.authorizationURIs[serverName]
+        }
+    }
+
+    public func tokenURI(serverName: String) -> String? {
+        lock.withLock { state in
+            state.tokenURIs[serverName]
+        }
+    }
+
+    public func pendingConfig(serverName: String) -> MCPServerConfig? {
+        lock.withLock { state in
+            state.pendingConfigs[serverName]
+        }
+    }
+
+    public func serverName(forPrompt name: String) -> String? {
+        lock.withLock { state in
+            for server in state.servers.values {
+                if server.prompts.contains(where: { $0.name == name }) {
+                    return server.config.name
+                }
+            }
+            return nil
+        }
+    }
+
     public func getPromptText(serverName: String, name: String) async throws -> String {
         let session = lock.withLock { state -> MCPSession? in
             state.servers[serverName]?.session
@@ -208,6 +257,12 @@ public final class MCPHub: @unchecked Sendable {
     public func registeredTools() -> [MCPRegisteredTool] {
         lock.withLock { state in
             state.servers.values.flatMap(\.tools)
+        }
+    }
+
+    public func connectedServerNames() -> [String] {
+        lock.withLock { state in
+            state.servers.keys.sorted()
         }
     }
 
@@ -283,6 +338,9 @@ public final class MCPHub: @unchecked Sendable {
             state.servers = [:]
             state.staleHarnessNames = []
             state.needsAuthServers = []
+            state.authorizationURIs = [:]
+            state.tokenURIs = [:]
+            state.pendingConfigs = [:]
         }
     }
 }
@@ -415,7 +473,7 @@ enum MCPError: Error {
     case requestFailed(String)
     case timedOut
     case processFailed
-    case needsAuthentication
+    case needsAuthentication(OAuthAuthorization)
 }
 
 // MARK: - Stdio transport
@@ -457,7 +515,12 @@ final class MCPStdioSession: MCPSession, @unchecked Sendable {
         self.stdinHandle = stdinPipe.fileHandleForWriting
 
         stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            self?.appendStdout(handle.availableData)
+            let data = handle.availableData
+            if data.isEmpty {
+                handle.readabilityHandler = nil
+                return
+            }
+            self?.appendStdout(data)
         }
     }
 
@@ -650,7 +713,7 @@ final class MCPHTTPSession: MCPSession, @unchecked Sendable {
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
             let challenge = http.value(forHTTPHeaderField: "WWW-Authenticate") ?? ""
             if !challenge.isEmpty {
-                throw MCPError.needsAuthentication
+                throw MCPError.needsAuthentication(OAuthChallenge.parse(challenge))
             }
             throw MCPError.requestFailed("unauthorized")
         }

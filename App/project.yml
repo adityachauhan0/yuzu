@@ -22,10 +22,13 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Yuzu/Yuzu.entitlements
         INFOPLIST_FILE: Yuzu/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
     dependencies:
       - package: YuzuHarness
         product: YuzuHarness
+      - package: YuzuHarness
+        product: YuzuModel
   YuzuTests:
     type: bundle.unit-test
     platform: macOS

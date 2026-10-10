@@ -147,4 +147,33 @@ struct SkillTests {
         #expect(result.contains(projectBody))
         #expect(!result.contains(SkillCatalog.customizeYuzuUniqueBodyMarker))
     }
+
+    @Test func slashSkillAdmitsBody() {
+        let skill = SkillRecord(
+            name: "brief",
+            description: "A short brief",
+            body: "Write a brief.",
+            directoryPath: "/tmp/brief",
+            slash: true
+        )
+        let hidden = SkillRecord(
+            name: "hidden",
+            description: "Not a command",
+            body: "Secret.",
+            directoryPath: "/tmp/hidden",
+            slash: false
+        )
+        #expect(ComposerCommands.skillExpansion(text: "/brief extra detail", skills: [skill, hidden]) == "Write a brief.\n\nextra detail")
+        #expect(ComposerCommands.skillExpansion(text: "/hidden", skills: [skill, hidden]) == nil)
+        #expect(ComposerCommands.skillExpansion(text: "not a command", skills: [skill]) == nil)
+    }
+
+    @Test func oauthChallengeKeepsTheAuthorizationURI() {
+        let header = "Bearer realm=\"mcp\", authorization_uri=\"http://127.0.0.1/oauth\""
+        #expect(OAuthChallenge.authorizationURI(from: header) == "http://127.0.0.1/oauth")
+        #expect(OAuthChallenge.parse(header).tokenURI == nil)
+        let both = "Bearer authorization_uri=\"http://127.0.0.1/oauth\", token_uri=\"http://127.0.0.1/token\""
+        #expect(OAuthChallenge.parse(both).tokenURI == "http://127.0.0.1/token")
+        #expect(OAuthChallenge.authorizationURI(from: "Bearer realm=\"mcp\"") == nil)
+    }
 }

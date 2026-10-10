@@ -15,7 +15,14 @@ struct YuzuApp: App {
             RootShellView()
                 .environmentObject(model)
                 .frame(minWidth: 900, minHeight: 600)
-                .onAppear { model.applyLaunchRouteIfNeeded() }
+                .onAppear {
+                    model.applyLaunchRouteIfNeeded()
+                    model.startScheduleWatch()
+                    Task {
+                        await model.applySavedMCPConfig()
+                        await model.prepareAdvisedModel()
+                    }
+                }
         }
         .commands {
             CommandGroup(replacing: .appSettings) {

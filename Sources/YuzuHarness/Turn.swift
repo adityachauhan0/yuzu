@@ -109,6 +109,7 @@ public struct StoredMessage: Sendable, Equatable, Codable {
     public var toolCalls: [ToolCall]
     public var toolCallID: String?
     public var toolName: String?
+    public var outputTokens: Int?
 
     public init(
         role: Role,
@@ -116,7 +117,8 @@ public struct StoredMessage: Sendable, Equatable, Codable {
         reasoning: String = "",
         toolCalls: [ToolCall] = [],
         toolCallID: String? = nil,
-        toolName: String? = nil
+        toolName: String? = nil,
+        outputTokens: Int? = nil
     ) {
         self.role = role
         self.text = text
@@ -124,6 +126,7 @@ public struct StoredMessage: Sendable, Equatable, Codable {
         self.toolCalls = toolCalls
         self.toolCallID = toolCallID
         self.toolName = toolName
+        self.outputTokens = outputTokens
     }
 
     public static func system(_ text: String) -> StoredMessage {
@@ -139,7 +142,8 @@ public struct StoredMessage: Sendable, Equatable, Codable {
             role: .assistant,
             text: turn.text,
             reasoning: turn.reasoning,
-            toolCalls: turn.toolCalls
+            toolCalls: turn.toolCalls,
+            outputTokens: turn.outputTokens
         )
     }
 
@@ -189,7 +193,16 @@ public enum TurnEvent: Sendable {
     case finished(AssistantTurn)
 }
 
+/// What sits behind a turn. A string on screen is not this.
+public enum ModelBacking: String, Sendable, Equatable {
+    /// Canned turns. Renaming the display label does not change this.
+    case scripted
+    /// The uzu engine. The enum case alone is not proof of a reply.
+    case uzu
+}
+
 public protocol ModelTurn: Sendable {
+    var backing: ModelBacking { get }
     func complete(_ request: TurnRequest) -> AsyncThrowingStream<TurnEvent, Error>
     func reset(epochID: String)
 }

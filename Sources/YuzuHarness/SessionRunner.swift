@@ -9,11 +9,30 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         var toolSettleWaiters: [CheckedContinuation<Void, Never>] = []
         var providerTurnWaiters: [CheckedContinuation<Void, Never>] = []
         var permissionWaiters: [String: CheckedContinuation<PermissionReply, Never>] = [:]
+        var earlyPermissionReplies: [String: PermissionReply] = [:]
     }
 
     public let sessionID: String
     private let store: HarnessStore
-    private let model: any ModelTurn
+    private let modelBox: OSAllocatedUnfairLock<any ModelTurn>
+
+    /// Module-qualified type of the installed turn. Display names are not accepted as a substitute.
+    public var installedModelTypeName: String {
+        String(reflecting: type(of: activeModel()))
+    }
+
+    public var modelBacking: ModelBacking {
+        activeModel().backing
+    }
+
+    /// Swaps the engine behind an already-open window. Weights stay in uzu's cache, not in the app bundle.
+    public func useModel(_ next: any ModelTurn) {
+        modelBox.withLock { $0 = next }
+    }
+
+    private func activeModel() -> any ModelTurn {
+        modelBox.withLock { $0 }
+    }
     private let stateLock = OSAllocatedUnfairLock(initialState: RunnerState())
 
     /// Test hook: block the drain before queue promotion (L1).
@@ -23,6 +42,9 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     /// Test hook: block immediately before calling the model (L9).
     public var holdBeforeProviderTurn = false
 
+    /// The effort the window selected. Tests leave this `.disabled`.
+    public var requestedReasoningEffort: ReasoningEffort = .disabled
+
     /// Overrides materialized tool names for the next boundary (tests).
     public var materializeOnly: Set<String>?
 
@@ -31,7 +53,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     public init(sessionID: String, store: HarnessStore, model: any ModelTurn) {
         self.sessionID = sessionID
         self.store = store
-        self.model = model
+        self.modelBox = OSAllocatedUnfairLock(initialState: model)
     }
 
     public func releaseQueuePromotionHold() {
@@ -93,22 +115,39 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     }
 
     public func cancel() async {
+        let status = try? store.session(id: sessionID)?.status
+        let inFlight = status == .running || status == .waitingPermission
         stateLock.withLock { $0.cancelRequested = true }
 
         if (try? store.deleteLastAssistantIfBareToolCall(sessionID: sessionID)) == true {
             if var session = try? store.session(id: sessionID) {
                 session.modelMessageCursor = 0
                 try? store.updateSession(session)
-                model.reset(epochID: session.epochID)
+                activeModel().reset(epochID: session.epochID)
             }
         }
 
-        stateLock.withLock { $0.cancelRequested = false }
+        let waiters = stateLock.withLock { state -> [CheckedContinuation<PermissionReply, Never>] in
+            let values = Array(state.permissionWaiters.values)
+            state.permissionWaiters.removeAll()
+            return values
+        }
+        for waiter in waiters {
+            waiter.resume(returning: .reject)
+        }
+
+        if !inFlight {
+            stateLock.withLock { $0.cancelRequested = false }
+        }
     }
 
     public func replyPermission(_ id: String, _ reply: PermissionReply) async {
         let waiter = stateLock.withLock { state -> CheckedContinuation<PermissionReply, Never>? in
-            state.permissionWaiters.removeValue(forKey: id)
+            if let waiter = state.permissionWaiters.removeValue(forKey: id) {
+                return waiter
+            }
+            state.earlyPermissionReplies[id] = reply
+            return nil
         }
         waiter?.resume(returning: reply)
     }
@@ -135,6 +174,9 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         guard var session = try? store.session(id: sessionID) else { return }
         session.status = .running
         try? store.updateSession(session)
+        defer {
+            stateLock.withLock { $0.cancelRequested = false }
+        }
 
         loop: while true {
             if let dangling = try? store.danglingToolCall(sessionID: sessionID) {
@@ -151,6 +193,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             }
 
             if isCancelRequested() {
+                stateLock.withLock { $0.cancelRequested = false }
                 break loop
             }
 
@@ -215,7 +258,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 delta: delta,
                 tools: materialized.definitions,
                 toolTurnLimit: 0,
-                reasoningEffort: .disabled,
+                reasoningEffort: requestedReasoningEffort,
                 contextLength: session.contextLength
             )
 
@@ -505,8 +548,15 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         }
 
         let reply = await withCheckedContinuation { continuation in
-            stateLock.withLock { state in
+            let early = stateLock.withLock { state -> PermissionReply? in
+                if let reply = state.earlyPermissionReplies.removeValue(forKey: requestID) {
+                    return reply
+                }
                 state.permissionWaiters[requestID] = continuation
+                return nil
+            }
+            if let early {
+                continuation.resume(returning: early)
             }
         }
 
@@ -572,7 +622,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         let result = await SubagentRunner.run(
             parentSessionID: sessionID,
             store: store,
-            model: model,
+            model: activeModel(),
             agentID: agentID,
             prompt: prompt,
             projectPath: session.projectPath,
@@ -592,7 +642,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
         do {
             try await ModelTurnCoordinator.shared.withTurn {
-                for try await event in model.complete(request) {
+                let turn = activeModel()
+                for try await event in turn.complete(request) {
                     switch event {
                     case .text(let chunk):
                         text += chunk
@@ -611,6 +662,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 }
             }
         } catch {
+            print("Yuzu model turn failed: \(error)")
             return nil
         }
 
@@ -632,11 +684,12 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         }
 
         if !assistant.toolCalls.isEmpty, isCancelRequested() {
-            _ = try? store.deleteLastAssistantIfBareToolCall(sessionID: sessionID)
-            if var session = try? store.session(id: sessionID) {
-                session.modelMessageCursor = 0
-                try? store.updateSession(session)
-                model.reset(epochID: session.epochID)
+            if (try? store.deleteLastAssistantIfBareToolCall(sessionID: sessionID)) == true {
+                if var session = try? store.session(id: sessionID) {
+                    session.modelMessageCursor = 0
+                    try? store.updateSession(session)
+                    activeModel().reset(epochID: session.epochID)
+                }
             }
             return nil
         }
@@ -696,7 +749,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             agentID: session.agentID
         )
 
-        model.reset(epochID: newEpochID)
+        activeModel().reset(epochID: newEpochID)
         return true
     }
 
@@ -705,7 +758,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         var finished: AssistantTurn?
         do {
             try await ModelTurnCoordinator.shared.withTurn {
-                for try await event in model.complete(request) {
+                let turn = activeModel()
+                for try await event in turn.complete(request) {
                     switch event {
                     case .text(let chunk):
                         text += chunk

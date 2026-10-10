@@ -2,6 +2,7 @@ import Foundation
 
 /// Test double that returns scripted assistant turns, one per `complete` call.
 public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
+    public let backing: ModelBacking = .scripted
     private let lock = NSLock()
     private var turns: [AssistantTurn]
     private var turnIndex = 0

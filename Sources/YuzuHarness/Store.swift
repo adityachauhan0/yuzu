@@ -153,6 +153,20 @@ public final class HarnessStore: Sendable {
                 t.add(column: "epoch_id", .text)
             }
         }
+        migrator.registerMigration("output_tokens") { db in
+            try db.alter(table: "messages") { t in
+                t.add(column: "output_tokens", .integer)
+            }
+        }
+        migrator.registerMigration("scheduled_tasks") { db in
+            try db.create(table: "scheduled_tasks") { t in
+                t.primaryKey("id", .text)
+                t.column("name", .text).notNull()
+                t.column("prompt", .text).notNull()
+                t.column("schedule_text", .text).notNull()
+                t.column("next_run", .double).notNull()
+            }
+        }
         return migrator
     }
 
@@ -298,7 +312,7 @@ public final class HarnessStore: Sendable {
             let rows = try Row.fetchAll(
                 db,
                 sql: """
-                SELECT role, text, reasoning, tool_calls_json, tool_call_id, tool_name
+                SELECT role, text, reasoning, tool_calls_json, tool_call_id, tool_name, output_tokens
                 FROM messages WHERE session_id = ? ORDER BY ordinal ASC
                 """,
                 arguments: [sessionID]
@@ -312,7 +326,8 @@ public final class HarnessStore: Sendable {
                     reasoning: row["reasoning"],
                     toolCalls: toolCalls,
                     toolCallID: row["tool_call_id"],
-                    toolName: row["tool_name"]
+                    toolName: row["tool_name"],
+                    outputTokens: row["output_tokens"]
                 )
             }
         }
@@ -320,6 +335,12 @@ public final class HarnessStore: Sendable {
 
     public func userMessages(sessionID: String) throws -> [StoredMessage] {
         try messages(sessionID: sessionID).filter { $0.role == .user }
+    }
+
+    public func deleteMessages(sessionID: String) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM messages WHERE session_id = ?", arguments: [sessionID])
+        }
     }
 
     public func appendMessage(sessionID: String, message: StoredMessage, epochID: String? = nil) throws {
@@ -347,8 +368,8 @@ public final class HarnessStore: Sendable {
                 sql: """
                 INSERT INTO messages (
                     session_id, ordinal, role, text, reasoning, tool_calls_json, tool_call_id, tool_name,
-                    epoch_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    epoch_id, output_tokens
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     sessionID,
@@ -360,6 +381,7 @@ public final class HarnessStore: Sendable {
                     message.toolCallID,
                     message.toolName,
                     resolvedEpoch,
+                    message.outputTokens,
                 ]
             )
         }
@@ -383,10 +405,10 @@ public final class HarnessStore: Sendable {
             let toolCallsJSON = String(decoding: toolCallsData, as: UTF8.self)
             try db.execute(
                 sql: """
-                UPDATE messages SET text = ?, reasoning = ?, tool_calls_json = ?
+                UPDATE messages SET text = ?, reasoning = ?, tool_calls_json = ?, output_tokens = ?
                 WHERE id = ?
                 """,
-                arguments: [message.text, message.reasoning, toolCallsJSON, rowID]
+                arguments: [message.text, message.reasoning, toolCallsJSON, message.outputTokens, rowID]
             )
         }
     }
@@ -640,6 +662,90 @@ public final class HarnessStore: Sendable {
                     permissionRequestID: row["permission_request_id"]
                 )
             }
+        }
+    }
+
+    public func scheduledTasks() throws -> [ScheduledTaskRecord] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT * FROM scheduled_tasks ORDER BY next_run ASC")
+            return rows.map { row in
+                ScheduledTaskRecord(
+                    id: row["id"],
+                    name: row["name"],
+                    prompt: row["prompt"],
+                    scheduleText: row["schedule_text"],
+                    nextRun: Date(timeIntervalSince1970: row["next_run"])
+                )
+            }
+        }
+    }
+
+    public func allSessions() throws -> [SessionRecord] {
+        try dbQueue.read { db in
+            try SessionRecord.fetchAll(db, sql: "SELECT * FROM sessions ORDER BY id ASC")
+        }
+    }
+
+    public func exportSessionDocuments() throws -> [SessionDocument] {
+        try allSessions().map { session in
+            SessionDocument(
+                id: session.id,
+                projectPath: session.projectPath,
+                modelIdentifier: session.modelIdentifier,
+                messages: try messages(sessionID: session.id)
+            )
+        }
+    }
+
+    public func importSessionDocuments(_ documents: [SessionDocument]) throws {
+        for document in documents {
+            var id = document.id
+            if try session(id: id) != nil {
+                id = "\(document.id)-\(UUID().uuidString)"
+            }
+            try insertSession(
+                SessionRecord(
+                    id: id,
+                    projectPath: document.projectPath,
+                    agentID: "build",
+                    modelIdentifier: document.modelIdentifier,
+                    epochID: "epoch-import",
+                    stepCount: 0,
+                    supportsMultipleToolCalls: true,
+                    status: .idle,
+                    modelMessageCursor: 0
+                )
+            )
+            for message in document.messages {
+                try appendMessage(sessionID: id, message: message, epochID: "epoch-import")
+            }
+        }
+    }
+
+    public func insertScheduledTask(_ task: ScheduledTaskRecord) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO scheduled_tasks (id, name, prompt, schedule_text, next_run)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    task.id,
+                    task.name,
+                    task.prompt,
+                    task.scheduleText,
+                    task.nextRun.timeIntervalSince1970,
+                ]
+            )
+        }
+    }
+
+    public func updateScheduledTaskNextRun(id: String, nextRun: Date) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE scheduled_tasks SET next_run = ? WHERE id = ?",
+                arguments: [nextRun.timeIntervalSince1970, id]
+            )
         }
     }
 }

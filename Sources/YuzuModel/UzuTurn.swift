@@ -12,6 +12,7 @@ public enum UzuTurnError: Error, Equatable, Sendable {
 /// The only type that imports `Uzu`. Tool schemas travel as a developer message.
 /// This type never calls `addTool` or `addForeignTool`.
 public final class UzuTurn: ModelTurn, @unchecked Sendable {
+    public let backing: ModelBacking = .uzu
     public static let evalModelIdentifier = "alibaba:qwen3.5:0.8b:mirai:mirai-m:4"
 
     private let gate: TurnGate
@@ -96,6 +97,7 @@ private actor TurnGate {
     private var tools: [ToolDefinition] = []
     private var contextLength: Int?
     private var appliedGeneration: UInt64 = 0
+    private var effortOverride: YuzuHarness.ReasoningEffort?
 
     init(engine: Engine, model: Model) {
         self.engine = engine
@@ -108,7 +110,8 @@ private actor TurnGate {
         yield: @Sendable (TurnEvent) -> Void
     ) async throws {
         let includeTools = try await prepare(request, generation: generation)
-        let messages = try messages(for: request, includeTools: includeTools)
+        let effort = effortOverride ?? request.reasoningEffort
+        let messages = try messages(for: request, includeTools: includeTools, effort: effort)
         // Greedy keeps the small eval model on the tool call instead of a prose echo.
         let config = ChatReplyConfig.create()
             .withSamplingMethod(samplingMethod: .greedy)
@@ -171,28 +174,33 @@ private actor TurnGate {
         return ChatConfig.create().withContextLength(contextLength: length)
     }
 
-    private func messages(for request: TurnRequest, includeTools: Bool) throws -> [ChatMessage] {
-        var systems: [ChatMessage] = []
+    private func messages(for request: TurnRequest, includeTools: Bool, effort: YuzuHarness.ReasoningEffort) throws -> [ChatMessage] {
+        var systemTexts: [String] = []
         var rest: [ChatMessage] = []
         for message in request.delta {
-            let converted = try chatMessage(message, effort: request.reasoningEffort)
             if message.role == .system {
-                systems.append(converted)
-            } else {
-                rest.append(converted)
+                if !message.text.isEmpty {
+                    systemTexts.append(message.text)
+                }
+                continue
             }
+            rest.append(try chatMessage(message, effort: effort))
+        }
+        // Qwen's template allows one system message, and it must be first.
+        var messages: [ChatMessage] = []
+        let merged = systemTexts.joined(separator: "\n\n")
+        if !merged.isEmpty {
+            messages.append(ChatMessage.system().withText(text: merged))
+        } else if includeTools {
+            messages.append(
+                ChatMessage.system().withText(text: "You are Yuzu, an on-device coding assistant.")
+            )
         }
         if includeTools {
-            if systems.isEmpty {
-                systems.append(
-                    ChatMessage.system().withReasoningEffort(
-                        reasoningEffort: engineEffort(request.reasoningEffort)
-                    )
-                )
-            }
-            systems.append(try toolNamespaceMessage(request.tools))
+            messages.append(try toolNamespaceMessage(request.tools))
         }
-        return systems + rest
+        messages.append(contentsOf: rest)
+        return messages
     }
 
     private func toolNamespaceMessage(_ tools: [ToolDefinition]) throws -> ChatMessage {
@@ -220,7 +228,7 @@ private actor TurnGate {
             if !message.text.isEmpty {
                 chat = chat.withText(text: message.text)
             }
-            return chat.withReasoningEffort(reasoningEffort: engineEffort(effort))
+            return chat
         case .developer:
             var chat = ChatMessage.developer()
             if !message.text.isEmpty {

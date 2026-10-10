@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SidebarView: View {
@@ -24,6 +25,10 @@ struct SidebarView: View {
             .padding(.horizontal, 10)
             .accessibilityLabel("Primary")
 
+            if model.sidebarSearchOpen {
+                searchResults
+            }
+
             if model.hasPinnedItems {
                 pinnedSection
             }
@@ -38,14 +43,32 @@ struct SidebarView: View {
                     model.openSettings()
                 }
                 .accessibilityIdentifier("account-menu-settings")
-                Button("Language") {}
+                Menu("Language") {
+                    Button {
+                        model.interfaceLanguage = "English"
+                    } label: {
+                        Label("English", systemImage: "checkmark")
+                    }
+                    .accessibilityIdentifier("account-language-english")
+                }
                 Button("Inference configuration") {
                     model.openSettings(tab: .developer)
                 }
                 Divider()
-                Button("View changelog") {}
-                Button("Learn more") {}
-                Button("Sign out") {}
+                Button("View changelog") {
+                    model.changelogPresented = true
+                }
+                .accessibilityIdentifier("account-changelog")
+                Button("Learn more") {
+                    if let url = URL(string: "https://github.com/adityachauhan0/yuzu") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .accessibilityIdentifier("account-learn-more")
+                Button("Sign out") {
+                    model.showToast("Yuzu runs on this Mac. There is no account to sign out of.")
+                }
+                .accessibilityIdentifier("account-sign-out")
             } label: {
                 HStack(spacing: 10) {
                     if let logo = HandoffImage.coworkLogo(dark: model.theme == .dark, width: 28) {
@@ -94,7 +117,10 @@ struct SidebarView: View {
             .foregroundStyle(colors.muted)
             .accessibilityID("sidebar-toggle")
 
-            Button {} label: {
+            Button {
+                model.sidebarSearchOpen.toggle()
+                if !model.sidebarSearchOpen { model.sidebarSearch = "" }
+            } label: {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14))
                     .frame(width: 28, height: 28)
@@ -107,13 +133,55 @@ struct SidebarView: View {
         .frame(height: 54)
     }
 
+    private var searchResults: some View {
+        let query = model.sidebarSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let pages = CoworkDestination.allCases.filter { $0 != .task && (query.isEmpty || $0.rawValue.lowercased().contains(query)) }
+        let tasks = model.recentTaskTitles.filter { query.isEmpty || $0.lowercased().contains(query) }
+        return VStack(alignment: .leading, spacing: 4) {
+            TextField("Search", text: Binding(
+                get: { model.sidebarSearch },
+                set: { model.sidebarSearch = $0 }
+            ))
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .padding(8)
+                .accessibilityID("sidebar-search-field")
+            ForEach(pages, id: \.self) { page in
+                Button(page.rawValue) {
+                    model.selectCowork(page)
+                    model.sidebarSearchOpen = false
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(colors.text)
+            }
+            ForEach(tasks, id: \.self) { title in
+                Button(title) {
+                    model.selectCowork(.task)
+                    model.sidebarSearchOpen = false
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(colors.muted)
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+
     private var pinnedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Pinned")
                 .font(.system(size: 14))
                 .foregroundStyle(colors.dim)
                 .padding(.horizontal, 18)
-            // Pinned rows appear when sessions or projects are pinned.
+            Button(model.taskTitle) {
+                model.selectCowork(.task)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 15))
+            .foregroundStyle(colors.muted)
+            .padding(.horizontal, 18)
+            .accessibilityID("pinned-task")
         }
         .padding(.top, 27)
     }
@@ -125,7 +193,9 @@ struct SidebarView: View {
                     .font(.system(size: 14))
                     .foregroundStyle(colors.dim)
                 Spacer()
-                Button {} label: {
+                Button {
+                    model.openSettings()
+                } label: {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 14))
                         .frame(width: 28, height: 28)
@@ -144,7 +214,7 @@ struct SidebarView: View {
                     HStack(spacing: 17) {
                         Circle().fill(colors.muted).frame(width: 7, height: 7)
                         Text(title)
-                            .font(.system(size: 15))
+                            .font(YuzuFonts.interface(model.interfaceFont, size: 15))
                             .lineLimit(1)
                         Spacer()
                     }
@@ -168,7 +238,7 @@ struct SidebarView: View {
                 Image(systemName: icon(for: destination))
                     .frame(width: 17, height: 17)
                 Text(destination.rawValue)
-                    .font(.system(size: 15.5))
+                    .font(YuzuFonts.interface(model.interfaceFont, size: 15.5))
                 Spacer()
             }
             .padding(.horizontal, 10)

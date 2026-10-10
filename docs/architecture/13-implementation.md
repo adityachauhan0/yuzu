@@ -355,6 +355,18 @@ The shell uses the handoff’s accessibility identifiers: `sidebar`, `mode-switc
 
 A release build is correct when slices 0 through 10 are green, `U1` and `U1b` were run against uzu 0.6.2 on this machine, and G1–G8 have been looked at against the golden PNGs in both themes. `V1` being green is not that look.
 
+## Reality evals
+
+The suites above can all be green while the window still runs `ScriptedTurn`. That score is not a harness. R0–R2 are the correction. They do not skip.
+
+| Id | Where | Pass | What does not count |
+| --- | --- | --- | --- |
+| R0 | `YuzuHarnessTests` | `ScriptedTurn.backing` is `.scripted`, and a canned complete does not contain a nonce that exists only in a file | A green R0. It only locks the stand-in. |
+| R1 | `YuzuTests` | `AppModel.makeForLaunch()` installs `YuzuModel.UzuTurn` with backing `.uzu` | The button text changing away from `scripted`. A `usesLiveEngine` flag. |
+| R2 | `YuzuTests` | After R1, a prompt that does not contain a random nonce still gets that nonce back, and the transcript shows a `read` of `secret.txt` | Skipping when the model is missing. Echoing the prompt. Flipping `ScriptedTurn.backing` to `.uzu` (R0 fails). |
+
+R1 and R2 are red until the window's launch path loads uzu. Making them skip so the suite stays green is a failed eval.
+
 ## Out of these evals
 
 Plugin installation, a second loaded model, and cloud environments. They are not in the window. An implementation that adds them fails `V1` review even if the tests are green.

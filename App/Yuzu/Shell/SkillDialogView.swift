@@ -31,7 +31,7 @@ struct SkillDialogView: View {
                 case .create:
                     createForm
                 case .detail(_, let description):
-                    Text(description.isEmpty ? "No description is visible in the reference." : description)
+                    Text(description.isEmpty ? "This skill has no description." : description)
                         .font(.system(size: 15))
                         .foregroundStyle(colors.muted)
                         .fixedSize(horizontal: false, vertical: true)

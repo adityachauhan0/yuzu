@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import YuzuHarness
 
@@ -7,15 +8,16 @@ struct RootShellView: View {
 
     var body: some View {
         let colors = ThemeColors(palette: model.theme.palette)
+        let reduced = reduceMotion || model.motionSetting == "Reduced"
         GeometryReader { proxy in
             HStack(spacing: 0) {
                 if !model.sidebarCollapsed {
-                    SidebarView(colors: colors, reduceMotion: reduceMotion)
+                    SidebarView(colors: colors, reduceMotion: reduced)
                         .frame(width: CGFloat(Tokens.sidebarWidth))
                 }
                 MainColumnView(
                     colors: colors,
-                    reduceMotion: reduceMotion,
+                    reduceMotion: reduced,
                     width: proxy.size.width - (model.sidebarCollapsed ? 0 : CGFloat(Tokens.sidebarWidth))
                 )
             }
@@ -23,6 +25,16 @@ struct RootShellView: View {
             .overlay {
                 if model.settingsPresented {
                     SettingsDialog(colors: colors)
+                }
+            }
+            .overlay {
+                if let request = model.pendingPermission {
+                    PermissionAskView(colors: colors, request: request)
+                }
+            }
+            .overlay {
+                if model.changelogPresented {
+                    ChangelogView(colors: colors)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -38,7 +50,7 @@ struct RootShellView: View {
                 model.contentWidth = width
             }
         }
-        .preferredColorScheme(model.theme == .dark ? .dark : .light)
+        .preferredColorScheme(model.theme == .dark ? .dark : model.theme == .light ? .light : nil)
     }
 }
 
@@ -69,19 +81,32 @@ struct MainColumnView: View {
             CoworkHomeView(colors: colors)
                 .accessibilityID("home")
         case .projects:
-            EmptyPanelView(
-                colors: colors,
-                title: "No project yet",
-                description: "Your project is ready for new tasks.",
-                detail: "Choose a folder to start a task in this workspace."
-            )
+            if model.hasProjects {
+                EmptyPanelView(
+                    colors: colors,
+                    title: model.codeFolderName,
+                    description: "Your project is ready for new tasks.",
+                    detail: "Select the project below to start a task in this workspace."
+                )
+            } else {
+                EmptyPanelView(
+                    colors: colors,
+                    title: "No project yet",
+                    description: "Your project is ready for new tasks.",
+                    detail: "Choose a folder to start a task in this workspace."
+                )
+            }
         case .artifacts:
-            EmptyPanelView(
-                colors: colors,
-                title: "No artifacts yet",
-                description: "Artifacts created from tasks will appear here.",
-                detail: "Start a task to create an artifact in this workspace."
-            )
+            if model.createdArtifactPaths.isEmpty {
+                EmptyPanelView(
+                    colors: colors,
+                    title: "No artifacts yet",
+                    description: "Artifacts created from tasks will appear here.",
+                    detail: "Start a task to create an artifact in this workspace."
+                )
+            } else {
+                ArtifactListView(colors: colors)
+            }
         case .scheduled:
             ScheduledEmptyView(colors: colors)
         case .customize:
@@ -98,6 +123,7 @@ struct MainColumnView: View {
 }
 
 struct EmptyPanelView: View {
+    @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
     let title: String
     let description: String
@@ -120,7 +146,9 @@ struct EmptyPanelView: View {
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: CGFloat(Tokens.contentWidth))
-            Button("New task") {}
+            Button("New task") {
+                model.selectCowork(.new)
+            }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
@@ -129,6 +157,142 @@ struct EmptyPanelView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct ChangelogView: View {
+    @EnvironmentObject private var model: AppModel
+    let colors: ThemeColors
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { model.changelogPresented = false }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Yuzu Beta Version 0.0.1")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(colors.text)
+                Text("Yuzu runs a local model through uzu. Weights stay in the uzu cache on this Mac.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(colors.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button("Close") { model.changelogPresented = false }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(colors.text)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(colors.surfaceHover)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
+                        .accessibilityID("changelog-close")
+                }
+            }
+            .padding(23)
+            .frame(width: 500)
+            .background(colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.line, lineWidth: 1))
+            .accessibilityID("changelog-dialog")
+        }
+    }
+}
+
+struct ArtifactListView: View {
+    @EnvironmentObject private var model: AppModel
+    let colors: ThemeColors
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Artifacts")
+                    .font(.custom("Georgia", size: 32))
+                    .foregroundStyle(colors.text)
+                ForEach(model.createdArtifactPaths, id: \.self) { path in
+                    Button {
+                        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(URL(fileURLWithPath: path).lastPathComponent)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(colors.text)
+                            Text(model.taskTitle)
+                                .font(.system(size: 13))
+                                .foregroundStyle(colors.dim)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .background(colors.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityID("artifact-\(URL(fileURLWithPath: path).lastPathComponent)")
+                }
+            }
+            .frame(maxWidth: 806, alignment: .leading)
+            .padding(40)
+        }
+    }
+}
+
+struct PermissionAskView: View {
+    @EnvironmentObject private var model: AppModel
+    let colors: ThemeColors
+    let request: PermissionRequestRecord
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Allow this?")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(colors.text)
+                Text(request.toolName)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(colors.text)
+                Text(request.resources.joined(separator: "\n"))
+                    .font(.system(size: 14))
+                    .foregroundStyle(colors.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    permissionButton("Reject", id: "permission-reject") {
+                        Task { await model.replyToPending(.reject) }
+                    }
+                    permissionButton("Once", id: "permission-once") {
+                        Task { await model.replyToPending(.once) }
+                    }
+                    permissionButton("Always", id: "permission-always") {
+                        Task { await model.replyToPending(.always) }
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .padding(22)
+            .frame(width: 460)
+            .background(colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.line, lineWidth: 1))
+            .shadow(color: .black.opacity(0.4), radius: 30, y: 10)
+            .accessibilityID("permission-dialog")
+        }
+    }
+
+    private func permissionButton(_ title: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .font(.system(size: 14))
+            .foregroundStyle(colors.text)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(colors.surfaceHover)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
+            .accessibilityID(id)
     }
 }
 
@@ -142,6 +306,10 @@ struct ScheduledEmptyView: View {
     @State private var sortLabel = "Next run"
     @State private var sortMenuOpen = false
     @State private var newMenuOpen = false
+    @State private var dialogOpen = false
+    @State private var draftName = ""
+    @State private var draftPrompt = ""
+    @State private var draftTime = ""
 
     private let examples: [(title: String, description: String, time: String)] = [
         (
@@ -200,7 +368,7 @@ struct ScheduledEmptyView: View {
                         .foregroundStyle(colors.text)
                     Spacer()
                     Button {
-                        model.keepAwake.toggle()
+                        model.setKeepAwake(!model.keepAwake)
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "sun.max")
@@ -227,15 +395,24 @@ struct ScheduledEmptyView: View {
                 .overlay(RoundedRectangle(cornerRadius: 15).stroke(colors.line, lineWidth: 1))
                 .padding(.top, 52)
 
-                VStack(spacing: 8) {
-                    ScheduledStopwatchIllustration(dark: isDark)
-                        .padding(.bottom, 14)
-                    Text("No scheduled tasks yet.")
-                        .font(.system(size: 16))
-                        .foregroundStyle(colors.muted)
+                if visibleTasks.isEmpty {
+                    VStack(spacing: 8) {
+                        ScheduledStopwatchIllustration(dark: isDark)
+                            .padding(.bottom, 14)
+                        Text("No scheduled tasks yet.")
+                            .font(.system(size: 16))
+                            .foregroundStyle(colors.muted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 287)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(visibleTasks) { task in
+                            scheduledRow(task)
+                        }
+                    }
+                    .padding(.top, 28)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 287)
 
                 ScheduledWaveDivider(dark: isDark)
                     .padding(.top, 0)
@@ -258,6 +435,18 @@ struct ScheduledEmptyView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            model.reloadSchedules()
+            consumeScheduleComposer()
+        }
+        .onChange(of: model.scheduleComposerOpen) { _, _ in
+            consumeScheduleComposer()
+        }
+        .overlay {
+            if dialogOpen {
+                scheduleDialog
+            }
+        }
     }
 
     private var scheduledControls: some View {
@@ -345,6 +534,7 @@ struct ScheduledEmptyView: View {
                 scheduledPopover {
                     Button("Create scheduled task") {
                         newMenuOpen = false
+                        openScheduleDialog(name: "", prompt: "", time: "")
                     }
                     .buttonStyle(.plain)
                     .accessibilityID("create-schedule-option")
@@ -388,7 +578,9 @@ struct ScheduledEmptyView: View {
     }
 
     private func scheduleExample(_ example: (title: String, description: String, time: String)) -> some View {
-        Button {} label: {
+        Button {
+            openScheduleDialog(name: example.title, prompt: example.description, time: example.time)
+        } label: {
             HStack(alignment: .top, spacing: 19) {
                 Image(systemName: icon(for: example.title))
                     .font(.system(size: 18))
@@ -412,6 +604,134 @@ struct ScheduledEmptyView: View {
         }
         .buttonStyle(.plain)
         .accessibilityID("schedule-example-\(example.title)")
+    }
+
+    private var visibleTasks: [ScheduledTaskRecord] {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filtered = model.scheduledTasks.filter { task in
+            query.isEmpty
+                || task.name.localizedCaseInsensitiveContains(query)
+                || task.prompt.localizedCaseInsensitiveContains(query)
+        }
+        if sortLabel == "Name" {
+            return filtered.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+        return filtered.sorted { $0.nextRun < $1.nextRun }
+    }
+
+    private func consumeScheduleComposer() {
+        guard model.scheduleComposerOpen else { return }
+        openScheduleDialog(
+            name: "",
+            prompt: model.scheduleComposerPrompt,
+            time: model.scheduleComposerTime
+        )
+        model.scheduleComposerOpen = false
+    }
+
+    private func openScheduleDialog(name: String, prompt: String, time: String) {
+        draftName = name
+        draftPrompt = prompt
+        draftTime = time
+        dialogOpen = true
+    }
+
+    private func scheduledRow(_ task: ScheduledTaskRecord) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(task.name)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(colors.text)
+            Text("\(task.scheduleText) · \(task.nextRun.formatted(date: .abbreviated, time: .shortened))")
+                .font(.system(size: 14))
+                .foregroundStyle(colors.dim)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(colors.line, lineWidth: 1))
+        .accessibilityID("scheduled-task-\(task.name)")
+    }
+
+    private var scheduleDialog: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { dialogOpen = false }
+            VStack(alignment: .leading, spacing: 0) {
+                Text("New scheduled task")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(colors.text)
+                    .padding(.bottom, 16)
+                    .accessibilityID("schedule-dialog-title")
+                scheduleField("Task name", text: $draftName, axis: nil)
+                    .accessibilityID("schedule-name")
+                scheduleField("What should it do?", text: $draftPrompt, axis: .vertical)
+                    .accessibilityID("schedule-prompt")
+                scheduleField("Schedule", text: $draftTime, axis: nil)
+                    .accessibilityID("schedule-time")
+                HStack {
+                    Spacer()
+                    Button("Cancel") { dialogOpen = false }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(colors.text)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(colors.surfaceHover)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
+                        .accessibilityID("schedule-cancel")
+                    Button("Create task") {
+                        do {
+                            try model.createScheduledTask(name: draftName, prompt: draftPrompt, scheduleText: draftTime)
+                            dialogOpen = false
+                        } catch {
+                            model.showToast("Use a time like Weekdays at 8:00 AM.")
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityID("schedule-create")
+                }
+                .padding(.top, 20)
+            }
+            .padding(22)
+            .frame(width: 460)
+            .background(colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.line, lineWidth: 1))
+            .shadow(color: .black.opacity(0.4), radius: 30, y: 10)
+            .accessibilityID("schedule-dialog")
+        }
+    }
+
+    private func scheduleField(_ title: String, text: Binding<String>, axis: Axis?) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundStyle(colors.text)
+            if axis == .vertical {
+                TextField("", text: text, axis: .vertical)
+                    .lineLimit(3...6)
+                    .textFieldStyle(.plain)
+                    .padding(10)
+                    .background(colors.canvas)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
+            } else {
+                TextField(title == "Schedule" ? "Weekdays at 8:00 AM" : "", text: text)
+                    .textFieldStyle(.plain)
+                    .padding(10)
+                    .background(colors.canvas)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
+            }
+        }
+        .padding(.top, 11)
     }
 
     private func icon(for title: String) -> String {

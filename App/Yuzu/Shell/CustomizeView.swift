@@ -55,7 +55,7 @@ struct CustomizeView: View {
                     case .skills:
                         skillsPanel
                     case .connectors:
-                        otherPanel(title: "Connectors", copy: "No servers added.")
+                        connectorsPanel
                     case .plugins:
                         otherPanel(title: "Plugins", copy: "No plugins yet.")
                     }
@@ -268,6 +268,49 @@ struct CustomizeView: View {
             result.reverse()
         }
         return result
+    }
+
+    private var connectorsPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Connectors")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(colors.text)
+            if model.mcpServerLines.isEmpty {
+                Text("No servers added.")
+                    .font(.system(size: 16))
+                    .foregroundStyle(colors.muted)
+            } else {
+                ForEach(model.mcpServerLines, id: \.self) { line in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(line)
+                            .font(.system(size: 15))
+                            .foregroundStyle(colors.muted)
+                        if line.contains("needs auth"), let name = mcpServerName(line) {
+                            Button("Sign in") { model.beginMCPSignIn(serverName: name) }
+                                .buttonStyle(.plain)
+                                .accessibilityID("mcp-sign-in-\(name)")
+                        }
+                    }
+                }
+            }
+            Button("Add") {
+                model.openSettings(tab: .developer)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 14))
+            .foregroundStyle(colors.text)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(colors.surfaceHover)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .accessibilityID("connectors-add")
+        }
+        .padding(.top, 33)
+    }
+
+    private func mcpServerName(_ line: String) -> String? {
+        let name = line.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        return name.isEmpty ? nil : name
     }
 
     private func otherPanel(title: String, copy: String) -> some View {

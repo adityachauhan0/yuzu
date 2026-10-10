@@ -1,14 +1,21 @@
+import AppKit
 import SwiftUI
 import YuzuHarness
 
 enum AppTheme: String, CaseIterable, Sendable {
+    case system
     case dark
     case light
 
     var palette: Tokens.Palette {
         switch self {
-        case .dark: Tokens.dark
-        case .light: Tokens.light
+        case .dark:
+            return Tokens.dark
+        case .light:
+            return Tokens.light
+        case .system:
+            let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return dark ? Tokens.dark : Tokens.light
         }
     }
 }
@@ -42,6 +49,37 @@ enum MotionTiming {
         if ms == 0 { return nil }
         let ease = Tokens.ease
         return .timingCurve(ease.x1, ease.y1, ease.x2, ease.y2, duration: Double(ms) / 1000)
+    }
+}
+
+enum YuzuFonts {
+    static func interfaceFamily(_ choice: String) -> String {
+        switch choice {
+        case "Serif": return "Georgia"
+        case "OpenDyslexic": return "OpenDyslexic"
+        default: return ""
+        }
+    }
+
+    static func codeFamily(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "" : trimmed
+    }
+
+    static func interface(_ choice: String, size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        let family = interfaceFamily(choice)
+        if family.isEmpty {
+            return .system(size: size, weight: weight)
+        }
+        return .custom(family, size: size).weight(weight)
+    }
+
+    static func code(_ name: String, size: CGFloat) -> Font {
+        let family = codeFamily(name)
+        if family.isEmpty {
+            return .system(size: size, design: .monospaced)
+        }
+        return .custom(family, size: size)
     }
 }
 
