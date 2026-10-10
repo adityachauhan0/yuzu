@@ -79,7 +79,8 @@ struct MCPTests {
             savedAllows: [],
             manualPressed: true
         )
-        #expect(materialized.definitions.contains { $0.name == "mcp_test_ping" })
+        let ping = try #require(materialized.definitions.first { $0.name == "mcp_test_ping" })
+        #expect(ping.name == "mcp_test_ping")
         #expect(PermissionGate.permissionAction(for: "mcp_test_ping") == "mcp:test")
     }
 
@@ -197,12 +198,14 @@ struct MCPTests {
 
         let bearer = "slice7-bearer"
         let port = 28_765
+        let authTrace = project.appendingPathComponent("http-auth-trace.txt")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         process.arguments = [fixturesURL("mcp_http_double.py").path]
         var env = ProcessInfo.processInfo.environment
         env["MCP_HTTP_BEARER"] = bearer
         env["MCP_HTTP_PORT"] = "\(port)"
+        env["MCP_HTTP_AUTH_TRACE"] = authTrace.path
         process.environment = env
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
@@ -227,5 +230,9 @@ struct MCPTests {
             manualPressed: true
         )
         #expect(materialized.definitions.contains { $0.name == "mcp_test_ping" })
+
+        #expect(FileManager.default.fileExists(atPath: authTrace.path))
+        let authLog = try String(contentsOf: authTrace, encoding: .utf8)
+        #expect(authLog.contains("Bearer \(bearer)"))
     }
 }

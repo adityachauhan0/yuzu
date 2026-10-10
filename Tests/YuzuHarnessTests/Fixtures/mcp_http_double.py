@@ -6,6 +6,7 @@ import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 BEARER = os.environ.get("MCP_HTTP_BEARER", "test-token")
+AUTH_TRACE = os.environ.get("MCP_HTTP_AUTH_TRACE")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -15,6 +16,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(401)
             self.end_headers()
             return
+        if AUTH_TRACE:
+            with open(AUTH_TRACE, "a", encoding="utf-8") as trace:
+                trace.write(auth + "\n")
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         req = json.loads(body)
