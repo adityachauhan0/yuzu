@@ -27,7 +27,7 @@ struct CoworkHomeView: View {
     private var welcomeHeading: some View {
         HStack(alignment: .center, spacing: 12) {
             Group {
-                if let logo = HandoffImage.coworkLogo(dark: isDark) {
+                if let logo = HandoffImage.coworkLogo(dark: isDark, width: 42) {
                     logo
                         .resizable()
                         .scaledToFit()

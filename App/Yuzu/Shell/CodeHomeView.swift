@@ -45,13 +45,16 @@ struct CodeHomeView: View {
                 model.selectCowork(.new)
             } label: {
                 Group {
-                    if let logo = HandoffImage.coworkLogo(dark: isDark) {
-                        logo.resizable().scaledToFit().frame(width: 26, height: 26)
+                    if let logo = HandoffImage.coworkLogo(dark: isDark, width: 42) {
+                        logo
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 42, height: 42)
                     } else {
                         Image(systemName: "sparkle").font(.system(size: 20))
                     }
                 }
-                .frame(width: 28, height: 32)
+                .accessibilityIdentifier("data-mascot-cowork")
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Return to Cowork")
@@ -261,7 +264,7 @@ struct CodeHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.line, lineWidth: 1))
 
-                if let mascot = HandoffImage.codeMascot(dark: isDark) {
+                if let mascot = HandoffImage.codeMascot(dark: isDark, width: 56) {
                     mascot
                         .resizable()
                         .scaledToFit()
@@ -269,6 +272,7 @@ struct CodeHomeView: View {
                         .padding(.trailing, 16)
                         .padding(.bottom, 83)
                         .allowsHitTesting(false)
+                        .accessibilityIdentifier("data-mascot-code")
                 }
             }
 

@@ -48,7 +48,7 @@ struct SidebarView: View {
                 Button("Sign out") {}
             } label: {
                 HStack(spacing: 10) {
-                    if let logo = HandoffImage.coworkLogo(dark: model.theme == .dark) {
+                    if let logo = HandoffImage.coworkLogo(dark: model.theme == .dark, width: 28) {
                         logo.resizable().scaledToFit().frame(width: 28, height: 28)
                     } else {
                         Image(systemName: "cat.fill")

@@ -51,7 +51,7 @@ All seven routes opened successfully; none skipped.
 
 ## G1 Code home — region check (actual vs golden)
 
-**Present in both:** cowork mascot + personalized heading, usage card with Overview/Models and All/30d/7d, six-metric grid + heatmap row, Local + folder row, code-input mascot, composer placeholder, + / Manual / model / speed **—** / High effort, sidebar traffic lights + collapse + search + mode switch + nav + Tasks heading.
+**Present in both:** cowork mascot + personalized heading, usage card with Overview/Models and All/30d/7d, six-metric grid + heatmap row, Local + folder row, code-input mascot, composer placeholder, + / Manual / model / speed **—** / High effort, sidebar traffic lights + collapse + search + mode switch + nav + Tasks heading. Light/dark actuals (recaptured 2026-10-10) load `cowork-logo(-light).svg` at 42px beside the heading and `code-input-mascot(-light).svg` at 56px over the composer (16px from the bar’s right edge); `HandoffImage` resolves SVGs from the app bundle root and rasterizes them at display size so SwiftUI no longer falls back to the sparkle placeholder or paints intrinsic 850×780 / 1448×1086 frames.
 
 **Mismatches (structural / copy):**
 
