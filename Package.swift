@@ -13,9 +13,15 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/trymirai/uzu.git", from: "0.6.2"),
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
     ],
     targets: [
-        .target(name: "YuzuHarness"),
+        .target(
+            name: "YuzuHarness",
+            dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
+        ),
         .target(
             name: "YuzuModel",
             dependencies: [
