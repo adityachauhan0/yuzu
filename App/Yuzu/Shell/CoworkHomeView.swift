@@ -6,17 +6,43 @@ struct CoworkHomeView: View {
     let colors: ThemeColors
     @State private var prompt = ""
 
+    private var isDark: Bool { model.theme == .dark }
+
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-            Text("Good Evening")
-                .font(.custom("Georgia", size: 32))
-                .foregroundStyle(colors.text)
+            welcomeHeading
             composer
             ideas
             Spacer()
         }
         .padding(.horizontal, 24)
+    }
+
+    private var welcomeHeading: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Group {
+                if let logo = HandoffImage.coworkLogo(dark: isDark) {
+                    logo
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 42, height: 42)
+                } else {
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 32))
+                }
+            }
+            .accessibilityHidden(true)
+
+            Text(AccountName.coworkWelcomeLine)
+                .font(.custom("Georgia", size: 44))
+                .foregroundStyle(colors.text)
+                .tracking(-2.2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(minHeight: 62)
+        .padding(.bottom, 16)
     }
 
     private var composer: some View {

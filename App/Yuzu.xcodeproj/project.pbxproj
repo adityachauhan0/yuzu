@@ -10,6 +10,7 @@
 		074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */; };
 		0A1B2C3D4E5F6789012345A /* AccountName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7890123456AB /* AccountName.swift */; };
 		0B1C2D3E4F5061728394A5B6 /* HandoffImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */; };
+		1C2D3E4F5061728394A5B6C7D /* HandoffIllustrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */; };
 		3C4D5E6F708192A3B4C5D6E7 /* cowork-logo.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */; };
 		5E6F708192A3B4C5D6E7F809 /* cowork-logo-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = 6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */; };
 		708192A3B4C5D6E7F8091A2B /* code-input-mascot.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */; };
@@ -44,6 +45,7 @@
 		04717245065E78C16C21A7C0 /* Yuzu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yuzu.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A2B3C4D5E6F7890123456AB /* AccountName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountName.swift; sourceTree = "<group>"; };
 		2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffImage.swift; sourceTree = "<group>"; };
+		3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffIllustrations.swift; sourceTree = "<group>"; };
 		4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = cowork-logo.svg; sourceTree = "<group>"; };
 		6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = cowork-logo-light.svg; sourceTree = "<group>"; };
 		8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = code-input-mascot.svg; sourceTree = "<group>"; };
@@ -145,6 +147,7 @@
 				1A2B3C4D5E6F7890123456AB /* AccountName.swift */,
 				2891A541671BDA8F63B24C50 /* CodeHomeView.swift */,
 				2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */,
+				3C4D5E6F708192A3B4C5D6E7F /* HandoffIllustrations.swift */,
 				89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */,
 				E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
@@ -281,6 +284,7 @@
 				D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */,
 				089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */,
 				0B1C2D3E4F5061728394A5B6 /* HandoffImage.swift in Sources */,
+				1C2D3E4F5061728394A5B6C7D /* HandoffIllustrations.swift in Sources */,
 				907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */,
 				074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */,
 				AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */,

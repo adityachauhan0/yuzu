@@ -211,9 +211,20 @@ final class AppModel: ObservableObject {
     }
 
     func applyLaunchRouteIfNeeded() {
+        if let themeRaw = ProcessInfo.processInfo.environment["YUZU_UI_THEME"] {
+            switch themeRaw.lowercased() {
+            case "light": theme = .light
+            case "dark": theme = .dark
+            default: break
+            }
+        }
         guard let raw = ProcessInfo.processInfo.environment["YUZU_UI_ROUTE"] else { return }
         guard let route = UITestRoute(launchName: raw) else { return }
         applyTestRoute(route)
+    }
+
+    var workspaceProjectPath: String {
+        (try? store.session(id: sessionID)?.projectPath) ?? ""
     }
 }
 

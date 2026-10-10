@@ -127,6 +127,8 @@ struct EmptyPanelView: View {
 struct ScheduledEmptyView: View {
     let colors: ThemeColors
     @EnvironmentObject private var model: AppModel
+
+    private var isDark: Bool { model.theme == .dark }
     @State private var searchVisible = false
     @State private var searchQuery = ""
     @State private var sortLabel = "Next run"
@@ -218,20 +220,17 @@ struct ScheduledEmptyView: View {
                 .padding(.top, 52)
 
                 VStack(spacing: 8) {
-                    Image(systemName: "stopwatch")
-                        .font(.system(size: 48))
-                        .foregroundStyle(colors.line)
+                    ScheduledStopwatchIllustration(dark: isDark)
+                        .padding(.bottom, 14)
                     Text("No scheduled tasks yet.")
                         .font(.system(size: 16))
                         .foregroundStyle(colors.muted)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 32)
+                .frame(height: 287)
 
-                Rectangle()
-                    .fill(colors.line.opacity(0.4))
-                    .frame(height: 1)
-                    .padding(.top, 24)
+                ScheduledWaveDivider(dark: isDark)
+                    .padding(.top, 0)
 
                 LazyVGrid(
                     columns: [GridItem(.flexible()), GridItem(.flexible())],
