@@ -114,13 +114,29 @@ public struct ContextCoordinator: Sendable {
         try store.epochRecord(sessionID: sessionID, epochID: epochID)?.baselineText
     }
 
+    public func projectedHistory(
+        store: HarnessStore,
+        sessionID: String,
+        session: SessionRecord
+    ) throws -> [StoredMessage] {
+        let messages = try store.messages(sessionID: sessionID)
+        let epochIDs = try store.messageEpochIDs(sessionID: sessionID)
+        return Compaction.projectedHistory(
+            messages: messages,
+            epochID: session.epochID,
+            messageEpochIDs: epochIDs,
+            compactionSummary: session.compactionSummary,
+            tailStartOrdinal: session.projectionTailStartOrdinal
+        )
+    }
+
     public func providerDelta(
         store: HarnessStore,
         sessionID: String,
         session: SessionRecord
     ) throws -> [StoredMessage] {
-        let allMessages = try store.messages(sessionID: sessionID)
-        var delta = Array(allMessages.dropFirst(session.modelMessageCursor))
+        let projected = try projectedHistory(store: store, sessionID: sessionID, session: session)
+        var delta = Array(projected.dropFirst(session.modelMessageCursor))
         guard let baseline = try baselineSystemText(
             store: store,
             sessionID: sessionID,

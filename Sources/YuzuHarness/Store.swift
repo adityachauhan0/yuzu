@@ -19,6 +19,11 @@ public struct SessionRecord: Sendable, Equatable {
     public var status: SessionStatus
     public var modelMessageCursor: Int
     public var manualPressed: Bool = true
+    public var contextLength: Int = CompactionSettings.production.contextLength
+    public var compactionBufferTokens: Int = CompactionSettings.production.bufferTokens
+    public var compactionKeepTokens: Int = CompactionSettings.production.keepTokens
+    public var compactionSummary: String?
+    public var projectionTailStartOrdinal: Int = 0
 }
 
 public final class HarnessStore: Sendable {
@@ -100,6 +105,20 @@ public final class HarnessStore: Sendable {
                 t.primaryKey(["session_id", "epoch_id"])
             }
         }
+        migrator.registerMigration("slice8") { db in
+            try db.alter(table: "sessions") { t in
+                t.add(column: "context_length", .integer).notNull().defaults(to: CompactionSettings.production.contextLength)
+                t.add(column: "compaction_buffer_tokens", .integer).notNull()
+                    .defaults(to: CompactionSettings.production.bufferTokens)
+                t.add(column: "compaction_keep_tokens", .integer).notNull()
+                    .defaults(to: CompactionSettings.production.keepTokens)
+                t.add(column: "compaction_summary", .text)
+                t.add(column: "projection_tail_start_ordinal", .integer).notNull().defaults(to: 0)
+            }
+            try db.alter(table: "messages") { t in
+                t.add(column: "epoch_id", .text)
+            }
+        }
         return migrator
     }
 
@@ -110,8 +129,9 @@ public final class HarnessStore: Sendable {
                 INSERT INTO sessions (
                     id, project_path, agent_id, model_identifier, epoch_id,
                     step_count, supports_multiple_tool_calls, status, model_message_cursor,
-                    manual_pressed
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    manual_pressed, context_length, compaction_buffer_tokens, compaction_keep_tokens,
+                    compaction_summary, projection_tail_start_ordinal
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     session.id,
@@ -124,6 +144,11 @@ public final class HarnessStore: Sendable {
                     session.status.rawValue,
                     session.modelMessageCursor,
                     session.manualPressed ? 1 : 0,
+                    session.contextLength,
+                    session.compactionBufferTokens,
+                    session.compactionKeepTokens,
+                    session.compactionSummary,
+                    session.projectionTailStartOrdinal,
                 ]
             )
         }
@@ -142,7 +167,8 @@ public final class HarnessStore: Sendable {
                 UPDATE sessions SET
                     project_path = ?, agent_id = ?, model_identifier = ?, epoch_id = ?,
                     step_count = ?, supports_multiple_tool_calls = ?, status = ?, model_message_cursor = ?,
-                    manual_pressed = ?
+                    manual_pressed = ?, context_length = ?, compaction_buffer_tokens = ?,
+                    compaction_keep_tokens = ?, compaction_summary = ?, projection_tail_start_ordinal = ?
                 WHERE id = ?
                 """,
                 arguments: [
@@ -155,6 +181,11 @@ public final class HarnessStore: Sendable {
                     session.status.rawValue,
                     session.modelMessageCursor,
                     session.manualPressed ? 1 : 0,
+                    session.contextLength,
+                    session.compactionBufferTokens,
+                    session.compactionKeepTokens,
+                    session.compactionSummary,
+                    session.projectionTailStartOrdinal,
                     session.id,
                 ]
             )
@@ -187,6 +218,20 @@ public final class HarnessStore: Sendable {
         }
     }
 
+    public func messageEpochIDs(sessionID: String) throws -> [String] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT epoch_id FROM messages WHERE session_id = ? ORDER BY ordinal ASC",
+                arguments: [sessionID]
+            )
+            return rows.map { row in
+                let value: String? = row["epoch_id"]
+                return value ?? ""
+            }
+        }
+    }
+
     public func messages(sessionID: String) throws -> [StoredMessage] {
         try dbQueue.read { db in
             let rows = try Row.fetchAll(
@@ -216,7 +261,7 @@ public final class HarnessStore: Sendable {
         try messages(sessionID: sessionID).filter { $0.role == .user }
     }
 
-    public func appendMessage(sessionID: String, message: StoredMessage) throws {
+    public func appendMessage(sessionID: String, message: StoredMessage, epochID: String? = nil) throws {
         try dbQueue.write { db in
             let ordinal = try Int.fetchOne(
                 db,
@@ -225,11 +270,24 @@ public final class HarnessStore: Sendable {
             ) ?? 0
             let toolCallsData = try JSONEncoder().encode(message.toolCalls)
             let toolCallsJSON = String(decoding: toolCallsData, as: UTF8.self)
+            let resolvedEpoch: String
+            if let epochID {
+                resolvedEpoch = epochID
+            } else if let session = try SessionRecord.fetchOne(
+                db,
+                sql: "SELECT * FROM sessions WHERE id = ?",
+                arguments: [sessionID]
+            ) {
+                resolvedEpoch = session.epochID
+            } else {
+                resolvedEpoch = ""
+            }
             try db.execute(
                 sql: """
                 INSERT INTO messages (
-                    session_id, ordinal, role, text, reasoning, tool_calls_json, tool_call_id, tool_name
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    session_id, ordinal, role, text, reasoning, tool_calls_json, tool_call_id, tool_name,
+                    epoch_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     sessionID,
@@ -240,6 +298,7 @@ public final class HarnessStore: Sendable {
                     toolCallsJSON,
                     message.toolCallID,
                     message.toolName,
+                    resolvedEpoch,
                 ]
             )
         }
@@ -540,6 +599,11 @@ extension SessionRecord: FetchableRecord {
         } else {
             manualPressed = true
         }
+        contextLength = row["context_length"] ?? CompactionSettings.production.contextLength
+        compactionBufferTokens = row["compaction_buffer_tokens"] ?? CompactionSettings.production.bufferTokens
+        compactionKeepTokens = row["compaction_keep_tokens"] ?? CompactionSettings.production.keepTokens
+        compactionSummary = row["compaction_summary"]
+        projectionTailStartOrdinal = row["projection_tail_start_ordinal"] ?? 0
     }
 }
 

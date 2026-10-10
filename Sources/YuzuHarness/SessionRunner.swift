@@ -183,6 +183,11 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 break loop
             }
 
+            if await runCompactionIfNeeded(session: &session) {
+                session = (try? store.session(id: sessionID)) ?? session
+                continue loop
+            }
+
             let agent = agentFor(session)
             let savedAllows = (try? store.permissionRules(projectPath: session.projectPath)) ?? []
             let materialized = ToolRegistry.materialize(
@@ -208,7 +213,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 tools: materialized.definitions,
                 toolTurnLimit: 0,
                 reasoningEffort: .disabled,
-                contextLength: 32_768
+                contextLength: session.contextLength
             )
 
             if holdBeforeProviderTurn {
@@ -594,5 +599,83 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
     private func agentFor(_ session: SessionRecord) -> Agent {
         session.agentID == "plan" ? .plan : .build
+    }
+
+    private func runCompactionIfNeeded(session: inout SessionRecord) async -> Bool {
+        let settings = CompactionSettings(session: session)
+        let baseline = try? contextCoordinator.baselineSystemText(
+            store: store,
+            sessionID: sessionID,
+            epochID: session.epochID
+        )
+        let projected = (try? contextCoordinator.projectedHistory(
+            store: store,
+            sessionID: sessionID,
+            session: session
+        )) ?? []
+        guard Compaction.needsCompaction(projected: projected, baseline: baseline, settings: settings) else {
+            return false
+        }
+
+        let allMessages = (try? store.messages(sessionID: sessionID)) ?? []
+        let selection = Compaction.selectMessages(messages: allMessages, settings: settings)
+        guard !selection.head.isEmpty else { return false }
+
+        let prompt = Compaction.buildSummaryPrompt(
+            head: selection.head,
+            previousSummary: session.compactionSummary
+        )
+        let summaryRequest = TurnRequest(
+            epochID: session.epochID,
+            delta: [.user(prompt)],
+            tools: [],
+            toolTurnLimit: 0,
+            reasoningEffort: .disabled,
+            contextLength: session.contextLength
+        )
+
+        guard let summaryText = await consumeCompactionSummary(request: summaryRequest) else {
+            return false
+        }
+
+        let newEpochID = UUID().uuidString
+        session.epochID = newEpochID
+        session.compactionSummary = summaryText
+        session.projectionTailStartOrdinal = selection.tailStartOrdinal
+        session.modelMessageCursor = 0
+        try? store.updateSession(session)
+
+        _ = try? contextCoordinator.reconcile(
+            store: store,
+            sessionID: sessionID,
+            epochID: newEpochID,
+            projectPath: session.projectPath,
+            agentID: session.agentID
+        )
+
+        model.reset(epochID: newEpochID)
+        return true
+    }
+
+    private func consumeCompactionSummary(request: TurnRequest) async -> String? {
+        var text = ""
+        var finished: AssistantTurn?
+        do {
+            for try await event in model.complete(request) {
+                switch event {
+                case .text(let chunk):
+                    text += chunk
+                case .reasoning:
+                    break
+                case .finished(let turn):
+                    finished = turn
+                }
+            }
+        } catch {
+            return nil
+        }
+        guard finished != nil else { return nil }
+        let summary = text.isEmpty ? (finished?.text ?? "") : text
+        return summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : summary
     }
 }
