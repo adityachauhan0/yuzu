@@ -24,6 +24,40 @@ public struct SessionRecord: Sendable, Equatable {
     public var compactionKeepTokens: Int = CompactionSettings.production.keepTokens
     public var compactionSummary: String?
     public var projectionTailStartOrdinal: Int = 0
+
+    public init(
+        id: String,
+        projectPath: String,
+        agentID: String,
+        modelIdentifier: String,
+        epochID: String,
+        stepCount: Int,
+        supportsMultipleToolCalls: Bool,
+        status: SessionStatus,
+        modelMessageCursor: Int,
+        manualPressed: Bool = true,
+        contextLength: Int = CompactionSettings.production.contextLength,
+        compactionBufferTokens: Int = CompactionSettings.production.bufferTokens,
+        compactionKeepTokens: Int = CompactionSettings.production.keepTokens,
+        compactionSummary: String? = nil,
+        projectionTailStartOrdinal: Int = 0
+    ) {
+        self.id = id
+        self.projectPath = projectPath
+        self.agentID = agentID
+        self.modelIdentifier = modelIdentifier
+        self.epochID = epochID
+        self.stepCount = stepCount
+        self.supportsMultipleToolCalls = supportsMultipleToolCalls
+        self.status = status
+        self.modelMessageCursor = modelMessageCursor
+        self.manualPressed = manualPressed
+        self.contextLength = contextLength
+        self.compactionBufferTokens = compactionBufferTokens
+        self.compactionKeepTokens = compactionKeepTokens
+        self.compactionSummary = compactionSummary
+        self.projectionTailStartOrdinal = projectionTailStartOrdinal
+    }
 }
 
 public final class HarnessStore: Sendable {
