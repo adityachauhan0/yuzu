@@ -58,6 +58,8 @@ final class AppModel: ObservableObject {
         "Yuzu is on-device AI. its not the best. Please double check responses."
 
     @Published var workspaceMode: WorkspaceMode = .code
+    /// A Code task is open in the thread. The Code mode switch returns to the Code home.
+    @Published var codeThreadOpen = false
     @Published var coworkDestination: CoworkDestination = .new
     @Published var theme: AppTheme = .dark { didSet { saveAppearance() } }
     @Published var settingsPresented = false
@@ -68,7 +70,7 @@ final class AppModel: ObservableObject {
     @Published var inspectorOpen = true
     @Published var contentWidth: CGFloat = 1440
     @Published var sidebarCollapsed = false
-    @Published var codeFolderName = "Select folder…"
+    @Published var codeFolderName = "Sandbox"
     @Published var keepAwake = false
     @Published var reasoningEffort: ReasoningEffort = .high
     @Published var coworkProjectName = "No project"
@@ -224,6 +226,7 @@ final class AppModel: ObservableObject {
 
     func selectCode() {
         workspaceMode = .code
+        codeThreadOpen = false
     }
 
     /// The handoff's Escape order: open popovers and dialogs, then Settings, the changelog,
@@ -348,6 +351,7 @@ final class AppModel: ObservableObject {
                 selectCowork(.task)
             } else {
                 codeTaskPreview = trimmed
+                codeThreadOpen = true
             }
         }
         let runner = self.runner
@@ -417,9 +421,30 @@ final class AppModel: ObservableObject {
         sessions = (try? store.sessionSummaries()) ?? []
     }
 
-    /// Tasks are sessions that have a message. An empty session is the one the next send fills.
+    /// Tasks for the mode that is open. Cowork and Code do not share a list.
     var taskSessions: [SessionSummary] {
-        sessions.filter { $0.messageCount > 0 || $0.id == sessionID && showTaskThread && coworkDestination == .task }
+        let surface: SessionSurface = workspaceMode == .code ? .code : .cowork
+        return sessions.filter { session in
+            session.surface == surface && (
+                session.messageCount > 0
+                    || session.id == sessionID && (
+                        (surface == .cowork && showTaskThread && coworkDestination == .task)
+                            || (surface == .code && codeThreadOpen)
+                    )
+            )
+        }
+    }
+
+    /// Code tasks grouped by folder. A task with no chosen folder is Sandbox.
+    var codeWorkspaceGroups: [(name: String, tasks: [SessionSummary])] {
+        let groups = Dictionary(grouping: taskSessions, by: { workspaceLabel($0.projectPath) })
+        return groups.keys.sorted { lhs, rhs in
+            if lhs == "Sandbox" { return true }
+            if rhs == "Sandbox" { return false }
+            return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }.map { name in
+            (name, groups[name] ?? [])
+        }
     }
 
     var pinnedSessions: [SessionSummary] {
@@ -444,23 +469,27 @@ final class AppModel: ObservableObject {
         reloadSessions()
     }
 
-    /// Reuses the open session when it is still empty, otherwise opens a new one in the chosen project.
+    /// Reuses the open session when it is still empty, otherwise opens a new one.
+    /// Cowork always uses Sandbox. Code uses the selected folder, or Sandbox when none is chosen.
     func beginTask() {
         let current = try? store.session(id: sessionID)
         let empty = ((try? store.messages(sessionID: sessionID)) ?? []).isEmpty
             && ((try? store.inboxRows(sessionID: sessionID)) ?? []).isEmpty
-        let project = nextProjectPath ?? defaultWorkspacePath
+        let surface: SessionSurface = workspaceMode == .code ? .code : .cowork
+        let project = taskProjectPath(for: surface)
+        try? FileManager.default.createDirectory(atPath: project, withIntermediateDirectories: true)
         if empty, var current {
-            if current.projectPath != project {
-                current.projectPath = project
-                try? store.updateSession(current)
-            }
+            current.projectPath = project
+            current.surface = surface
+            try? store.updateSession(current)
+            reloadSessions()
             return
         }
         let id = UUID().uuidString
         let record = SessionRecord(
             id: id,
             projectPath: project,
+            surface: surface,
             agentID: "build",
             modelIdentifier: installedModelIdentifier ?? current?.modelIdentifier ?? "pending",
             epochID: UUID().uuidString,
@@ -484,28 +513,60 @@ final class AppModel: ObservableObject {
         if id != sessionID {
             switchSession(to: id)
         }
-        selectCowork(.task)
+        let surface = sessions.first { $0.id == id }?.surface ?? .cowork
+        if surface == .code {
+            workspaceMode = .code
+            codeThreadOpen = true
+        } else {
+            codeThreadOpen = false
+            selectCowork(.task)
+        }
+    }
+
+    private func taskProjectPath(for surface: SessionSurface) -> String {
+        if surface == .cowork { return sandboxPath }
+        return nextProjectPath ?? sandboxPath
+    }
+
+    func workspaceLabel(_ path: String) -> String {
+        if isSandbox(path) { return "Sandbox" }
+        return URL(fileURLWithPath: path).lastPathComponent
+    }
+
+    func isSandbox(_ path: String) -> Bool {
+        path.isEmpty || path == sandboxPath || path == defaultWorkspacePath
     }
 
     func deleteCurrentTask() {
         let doomed = sessionID
-        if let other = sessions.first(where: { $0.id != doomed && $0.messageCount > 0 }) {
+        let surface = sessions.first { $0.id == doomed }?.surface ?? .cowork
+        let siblings = sessions.filter { $0.id != doomed && $0.messageCount > 0 && $0.surface == surface }
+        if let other = siblings.first {
             switchSession(to: other.id)
+            if surface == .code { codeThreadOpen = true }
         } else {
             beginTaskReplacing(doomed)
+            if surface == .code { codeThreadOpen = false }
         }
         try? store.deleteSession(id: doomed)
         reloadSessions()
-        selectCowork(.new)
+        if surface == .cowork {
+            selectCowork(siblings.isEmpty ? .new : .task)
+        } else {
+            workspaceMode = .code
+        }
     }
 
     private func beginTaskReplacing(_ id: String) {
-        let project = (try? store.session(id: id)?.projectPath) ?? workspaceProjectPath
+        let previous = try? store.session(id: id)
+        let surface = previous?.surface ?? .cowork
+        let project = surface == .cowork ? sandboxPath : (previous?.projectPath ?? sandboxPath)
+        try? FileManager.default.createDirectory(atPath: project, withIntermediateDirectories: true)
         let fresh = UUID().uuidString
         try? store.insertSession(
             SessionRecord(
-                id: fresh, projectPath: project, agentID: "build",
-                modelIdentifier: (try? store.session(id: id)?.modelIdentifier) ?? "pending",
+                id: fresh, projectPath: project, surface: surface, agentID: "build",
+                modelIdentifier: previous?.modelIdentifier ?? "pending",
                 epochID: UUID().uuidString, stepCount: 0, supportsMultipleToolCalls: true,
                 status: .idle, modelMessageCursor: 0, permissionPosture: permissionPosture
             )
@@ -731,6 +792,90 @@ final class AppModel: ObservableObject {
         try? body.write(to: supportDirectory.appendingPathComponent("memories.md"), atomically: true, encoding: .utf8)
     }
 
+    /// Steps for the Progress bar. The model's own list wins. Otherwise the steps are the tools from the latest turn.
+    var taskSteps: [TaskStep] {
+        if !todos.isEmpty {
+            return todos.enumerated().map { index, item in
+                TaskStep(id: "todo-\(index)", title: item.content, status: item.status)
+            }
+        }
+        return toolStepsSinceLastUser
+    }
+
+    var taskProgressFraction: Double {
+        let steps = taskSteps
+        if steps.isEmpty { return turnRunning ? 0.12 : 0 }
+        let done = steps.filter { $0.status == .completed }.count
+        let partial = steps.contains { $0.status == .inProgress } ? 0.45 : 0
+        return min(1, (Double(done) + partial) / Double(steps.count))
+    }
+
+    var taskProgressLabel: String {
+        let steps = taskSteps
+        if steps.isEmpty { return turnRunning ? "Working" : "No steps yet" }
+        let done = steps.filter { $0.status == .completed }.count
+        if let current = steps.first(where: { $0.status == .inProgress }) {
+            return "\(done) of \(steps.count) · \(current.title)"
+        }
+        return "\(done) of \(steps.count) steps"
+    }
+
+    private var toolStepsSinceLastUser: [TaskStep] {
+        guard let start = transcript.lastIndex(where: { $0.role == .user }) else {
+            return turnRunning ? [TaskStep(id: "working", title: "Working", status: .inProgress)] : []
+        }
+        let finished = Set(transcript[start...].filter { $0.role == .tool }.compactMap(\.toolCallID))
+        var steps: [TaskStep] = []
+        for message in transcript[start...] where message.role == .assistant {
+            for call in message.toolCalls {
+                let status: TodoItem.Status
+                if finished.contains(call.id) {
+                    status = .completed
+                } else if turnRunning {
+                    status = .inProgress
+                } else {
+                    status = .pending
+                }
+                steps.append(TaskStep(id: call.id, title: taskStepTitle(call), status: status))
+            }
+        }
+        if steps.isEmpty, turnRunning {
+            steps.append(TaskStep(id: "working", title: "Working", status: .inProgress))
+        }
+        return steps
+    }
+
+    private func taskStepTitle(_ call: ToolCall) -> String {
+        let verb: String
+        switch call.name {
+        case "read": verb = "Read"
+        case "write": verb = "Write"
+        case "edit": verb = "Edit"
+        case "bash": verb = "Shell"
+        case "grep": verb = "Search"
+        case "glob": verb = "Find"
+        case "webfetch": verb = "Fetch"
+        case "todowrite": verb = "Plan"
+        case "skill": verb = "Skill"
+        case "task": verb = "Task"
+        default: verb = call.name
+        }
+        guard case .object(let fields) = call.arguments else { return verb }
+        if case .string(let path)? = fields["path"], !path.isEmpty {
+            return "\(verb) \(URL(fileURLWithPath: path).lastPathComponent)"
+        }
+        if case .string(let command)? = fields["command"], !command.isEmpty {
+            let first = command.split(whereSeparator: \.isNewline).first.map(String.init) ?? command
+            let clipped = first.count > 36 ? String(first.prefix(35)) + "…" : first
+            return "Shell \(clipped)"
+        }
+        if case .string(let query)? = fields["pattern"] ?? fields["query"], !query.isEmpty {
+            let clipped = query.count > 28 ? String(query.prefix(27)) + "…" : query
+            return "\(verb) \(clipped)"
+        }
+        return verb
+    }
+
     func reloadTranscript() {
         let messages = (try? store.messages(sessionID: sessionID)) ?? []
         if messages != transcript { transcript = messages }
@@ -951,7 +1096,7 @@ final class AppModel: ObservableObject {
     }
 
     func clearProjectFolder() {
-        codeFolderName = "Select folder…"
+        codeFolderName = "Sandbox"
         coworkProjectName = "No project"
         nextProjectPath = nil
     }
@@ -1399,11 +1544,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    var gatsbyUsageNote: String {
-        let multiple = max(1, allTimeTokenCount / 62_000)
-        return "You've used ~\(multiple)× more tokens than The Great Gatsby."
-    }
-
     func applyTestRoute(_ route: UITestRoute) {
         settingsPresented = false
         showTaskThread = false
@@ -1457,12 +1597,17 @@ final class AppModel: ObservableObject {
         supportDirectory.appendingPathComponent("workspace", isDirectory: true).path
     }
 
+    /// Working directory for Cowork, and for Code tasks that have no folder yet.
+    var sandboxPath: String {
+        supportDirectory.appendingPathComponent("Sandbox", isDirectory: true).path
+    }
+
     /// Folders that tasks ran in, newest first, without the app's own scratch workspace.
     var knownProjectFolders: [URL] {
         var seen = Set<String>()
         let paths = ([nextProjectPath].compactMap { $0 } + sessions.map(\.projectPath))
         return paths.compactMap { path in
-            guard path != defaultWorkspacePath, !path.isEmpty, seen.insert(path).inserted else { return nil }
+            guard !isSandbox(path), seen.insert(path).inserted else { return nil }
             return URL(fileURLWithPath: path)
         }
     }

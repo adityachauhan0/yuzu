@@ -16,6 +16,11 @@ enum CodeUsagePeriod: String, CaseIterable {
 struct CodeHomeView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
+    @State private var claimedCodePhrases = false
+    @State private var codeGreeting = 0
+    @State private var codePrompt = 0
+    @State private var usageNote = 0
+    @ObservedObject private var machine = MachineMonitor.shared
     @State private var prompt = ""
     @State private var usageTab: CodeUsageTab = .overview
     @State private var modelMenuOpen = false
@@ -30,6 +35,7 @@ struct CodeHomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     heading
+                    codeProgress
                     usageCard
                     if let preview = model.codeTaskPreview {
                         Button {
@@ -53,12 +59,17 @@ struct CodeHomeView: View {
                 .frame(maxWidth: CGFloat(Tokens.contentWidth), alignment: .leading)
                 .padding(.top, 55)
             }
+            .scrollIndicators(.never)
             footer
                 .frame(maxWidth: CGFloat(Tokens.contentWidth))
                 .padding(.bottom, 18)
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onAppear {
+            claimCodePhrases()
+            machine.start()
+        }
         .dismissesOnEscape($addMenuOpen)
         .dismissesOnEscape($modelMenuOpen)
     }
@@ -83,11 +94,32 @@ struct CodeHomeView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Return to Cowork")
 
-            Text("What's up next, \(AccountName.firstName)?")
+            Text(PhraseBook.line(.codeGreeting, index: codeGreeting))
                 .font(.system(size: 25, weight: .regular))
                 .foregroundStyle(colors.text)
                 .tracking(-0.6)
         }
+    }
+
+    private var codeProgress: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TaskProgressBar(fraction: model.taskProgressFraction, colors: colors)
+                .accessibilityID("task-progress-bar", label: model.taskProgressLabel)
+            Text(model.taskProgressLabel)
+                .font(.system(size: 13))
+                .foregroundStyle(colors.dim)
+            MachineMeters(sample: machine.sample, modelName: model.modelDisplayName, colors: colors)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .frame(maxWidth: 576, alignment: .leading)
+        .background(colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .padding(.top, 28)
+        .padding(.leading, 10)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Task progress")
     }
 
     private var usageCard: some View {
@@ -174,7 +206,7 @@ struct CodeHomeView: View {
             heatmap
 
             if metrics.tokens > 0 {
-                Text(model.gatsbyUsageNote)
+                Text(PhraseBook.line(.usageNote, index: usageNote, tokens: model.allTimeTokenCount))
                     .font(.system(size: 13))
                     .foregroundStyle(colors.dim)
                     .padding(.top, 5)
@@ -249,7 +281,7 @@ struct CodeHomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
-                    TextField("Describe a task or ask a question", text: $prompt, axis: .vertical)
+                    TextField(PhraseBook.line(.codePrompt, index: codePrompt), text: $prompt, axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(1...6)
                         .padding(.horizontal, 14)
@@ -261,7 +293,7 @@ struct CodeHomeView: View {
                             send()
                             return .handled
                         }
-                        .accessibilityID("code-prompt", label: "Describe a task or ask a question")
+                        .accessibilityID("code-prompt", label: PhraseBook.line(.codePrompt, index: codePrompt))
 
                     HStack {
                         Spacer()
@@ -437,6 +469,14 @@ struct CodeHomeView: View {
             }
         }
         .dismissesOnEscape($effortMenuOpen)
+    }
+
+    private func claimCodePhrases() {
+        guard !claimedCodePhrases else { return }
+        codeGreeting = PhraseVisits.claim(.codeGreeting)
+        codePrompt = PhraseVisits.claim(.codePrompt)
+        usageNote = PhraseVisits.claim(.usageNote)
+        claimedCodePhrases = true
     }
 
     private var promptReady: Bool {

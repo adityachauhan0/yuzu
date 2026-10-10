@@ -1,9 +1,15 @@
 import Foundation
 import GRDB
 
+public enum SessionSurface: String, Sendable, Equatable, Codable {
+    case cowork
+    case code
+}
+
 public struct SessionSummary: Sendable, Equatable, Identifiable {
     public var id: String
     public var projectPath: String
+    public var surface: SessionSurface
     public var title: String?
     public var firstPrompt: String?
     public var createdAt: Date
@@ -40,6 +46,7 @@ public struct InboxRow: Sendable, Equatable {
 public struct SessionRecord: Sendable, Equatable {
     public var id: String
     public var projectPath: String
+    public var surface: SessionSurface = .cowork
     public var agentID: String
     public var modelIdentifier: String
     public var epochID: String
@@ -62,6 +69,7 @@ public struct SessionRecord: Sendable, Equatable {
     public init(
         id: String,
         projectPath: String,
+        surface: SessionSurface = .cowork,
         agentID: String,
         modelIdentifier: String,
         epochID: String,
@@ -79,6 +87,7 @@ public struct SessionRecord: Sendable, Equatable {
     ) {
         self.id = id
         self.projectPath = projectPath
+        self.surface = surface
         self.agentID = agentID
         self.modelIdentifier = modelIdentifier
         self.epochID = epochID
@@ -225,6 +234,21 @@ public final class HarnessStore: Sendable {
                 t.primaryKey(["session_id", "position"])
             }
         }
+        migrator.registerMigration("session_surface") { db in
+            try db.alter(table: "sessions") { t in
+                t.add(column: "surface", .text).notNull().defaults(to: SessionSurface.cowork.rawValue)
+            }
+            // Folder-backed sessions belong to Code. The scratch workspace stays Cowork.
+            try db.execute(
+                sql: """
+                UPDATE sessions SET surface = ?
+                WHERE project_path != ''
+                  AND project_path NOT LIKE '%/Yuzu/workspace'
+                  AND project_path NOT LIKE '%/Yuzu/Sandbox'
+                """,
+                arguments: [SessionSurface.code.rawValue]
+            )
+        }
         return migrator
     }
 
@@ -257,7 +281,7 @@ public final class HarnessStore: Sendable {
             let rows = try Row.fetchAll(
                 db,
                 sql: """
-                SELECT s.id, s.project_path, m.title, m.created_at, m.pinned,
+                SELECT s.id, s.project_path, s.surface, m.title, m.created_at, m.pinned,
                     (SELECT COUNT(*) FROM messages WHERE session_id = s.id) AS message_count,
                     (SELECT text FROM messages WHERE session_id = s.id AND role = 'user'
                         ORDER BY ordinal ASC LIMIT 1) AS first_prompt,
@@ -270,9 +294,10 @@ public final class HarnessStore: Sendable {
                 let created = Date(timeIntervalSince1970: row["created_at"] ?? 0)
                 let last: Double? = row["last_activity"]
                 return SessionSummary(
-                    id: row["id"],
-                    projectPath: row["project_path"],
-                    title: row["title"],
+        id: row["id"],
+        projectPath: row["project_path"],
+        surface: SessionSurface(rawValue: row["surface"] ?? "") ?? .cowork,
+        title: row["title"],
                     firstPrompt: row["first_prompt"],
                     createdAt: created,
                     lastActivity: last.map(Date.init(timeIntervalSince1970:)) ?? created,
@@ -346,15 +371,16 @@ public final class HarnessStore: Sendable {
             try db.execute(
                 sql: """
                 INSERT INTO sessions (
-                    id, project_path, agent_id, model_identifier, epoch_id,
+                    id, project_path, surface, agent_id, model_identifier, epoch_id,
                     step_count, supports_multiple_tool_calls, status, model_message_cursor,
                     manual_pressed, context_length, compaction_buffer_tokens, compaction_keep_tokens,
                     compaction_summary, projection_tail_start_ordinal
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     session.id,
                     session.projectPath,
+                    session.surface.rawValue,
                     session.agentID,
                     session.modelIdentifier,
                     session.epochID,
@@ -388,7 +414,7 @@ public final class HarnessStore: Sendable {
             try db.execute(
                 sql: """
                 UPDATE sessions SET
-                    project_path = ?, agent_id = ?, model_identifier = ?, epoch_id = ?,
+                    project_path = ?, surface = ?, agent_id = ?, model_identifier = ?, epoch_id = ?,
                     step_count = ?, supports_multiple_tool_calls = ?, status = ?, model_message_cursor = ?,
                     manual_pressed = ?, context_length = ?, compaction_buffer_tokens = ?,
                     compaction_keep_tokens = ?, compaction_summary = ?, projection_tail_start_ordinal = ?
@@ -396,6 +422,7 @@ public final class HarnessStore: Sendable {
                 """,
                 arguments: [
                     session.projectPath,
+                    session.surface.rawValue,
                     session.agentID,
                     session.modelIdentifier,
                     session.epochID,
@@ -1004,6 +1031,7 @@ extension SessionRecord: FetchableRecord {
     public init(row: Row) {
         id = row["id"]
         projectPath = row["project_path"]
+        surface = SessionSurface(rawValue: row["surface"] ?? "") ?? .cowork
         agentID = row["agent_id"]
         modelIdentifier = row["model_identifier"]
         epochID = row["epoch_id"]

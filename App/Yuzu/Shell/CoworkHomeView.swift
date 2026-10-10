@@ -5,6 +5,9 @@ import YuzuHarness
 struct CoworkHomeView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
+    @State private var claimedCoworkPhrases = false
+    @State private var coworkGreeting = 0
+    @State private var coworkPrompt = 0
     @State private var prompt = ""
     @State private var addMenuOpen = false
     @State private var modelMenuOpen = false
@@ -23,6 +26,7 @@ struct CoworkHomeView: View {
             Spacer()
         }
         .padding(.horizontal, 24)
+        .onAppear(perform: claimCoworkPhrases)
         .onChange(of: model.coworkSeed) { _, seed in
             guard let seed else { return }
             prompt = seed
@@ -49,7 +53,7 @@ struct CoworkHomeView: View {
             }
             .accessibilityHidden(true)
 
-            Text(AccountName.coworkWelcomeLine)
+            Text(PhraseBook.line(.coworkGreeting, index: coworkGreeting))
                 .font(.custom("Georgia", size: 44))
                 .foregroundStyle(colors.text)
                 .tracking(-2.2)
@@ -63,7 +67,7 @@ struct CoworkHomeView: View {
     private var composerWrap: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
-                TextField("How can I help you today?", text: $prompt, axis: .vertical)
+                TextField(PhraseBook.line(.coworkPrompt, index: coworkPrompt), text: $prompt, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(2...4)
                     .padding(.horizontal, 16)
@@ -82,6 +86,7 @@ struct CoworkHomeView: View {
                     Button {
                         addMenuOpen.toggle()
                         modelMenuOpen = false
+                        effortMenuOpen = false
                         projectMenuOpen = false
                     } label: {
                         Image(systemName: "plus")
@@ -97,11 +102,14 @@ struct CoworkHomeView: View {
                     Button {
                         modelMenuOpen.toggle()
                         addMenuOpen = false
+                        effortMenuOpen = false
                         projectMenuOpen = false
                     } label: {
                         Text(model.modelDisplayName)
                             .font(.system(size: 15))
                             .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: 220, alignment: .trailing)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(colors.text)
@@ -110,6 +118,8 @@ struct CoworkHomeView: View {
                     Button {
                         effortMenuOpen.toggle()
                         modelMenuOpen = false
+                        addMenuOpen = false
+                        projectMenuOpen = false
                     } label: {
                         Text(model.coworkEffortLabel)
                             .font(.system(size: 15))
@@ -139,6 +149,7 @@ struct CoworkHomeView: View {
                 projectMenuOpen.toggle()
                 addMenuOpen = false
                 modelMenuOpen = false
+                effortMenuOpen = false
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "folder")
@@ -178,26 +189,30 @@ struct CoworkHomeView: View {
         .overlay(alignment: .topLeading) {
             if addMenuOpen {
                 addMenu
-                    .padding(.top, 120)
+                    .frame(width: 220, alignment: .leading)
+                    .padding(.top, 108)
                     .padding(.leading, 16)
             }
         }
         .overlay(alignment: .topTrailing) {
             if modelMenuOpen {
                 modelMenu
-                    .padding(.top, 120)
-                    .padding(.trailing, 120)
+                    .frame(width: 240, alignment: .leading)
+                    .padding(.top, 108)
+                    .padding(.trailing, 72)
             }
             if effortMenuOpen {
                 effortMenu
-                    .padding(.top, 120)
-                    .padding(.trailing, 56)
+                    .frame(width: 200, alignment: .leading)
+                    .padding(.top, 108)
+                    .padding(.trailing, 16)
             }
         }
         .overlay(alignment: .topLeading) {
             if projectMenuOpen {
                 projectMenu
-                    .padding(.top, 169)
+                    .frame(width: 240, alignment: .leading)
+                    .padding(.top, 168)
                     .padding(.leading, 16)
             }
         }
@@ -291,6 +306,13 @@ struct CoworkHomeView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(colors.muted)
+    }
+
+    private func claimCoworkPhrases() {
+        guard !claimedCoworkPhrases else { return }
+        coworkGreeting = PhraseVisits.claim(.coworkGreeting)
+        coworkPrompt = PhraseVisits.claim(.coworkPrompt)
+        claimedCoworkPhrases = true
     }
 
     private func sendTask() {

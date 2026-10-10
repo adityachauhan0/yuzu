@@ -30,7 +30,8 @@ final class TaskSessionTests: XCTestCase {
         XCTAssertEqual(model.taskSessions.map(\.displayTitle), ["write the docs", "fix the parser"])
 
         model.openTask(first)
-        XCTAssertEqual(model.coworkDestination, .task)
+        XCTAssertEqual(model.workspaceMode, .code)
+        XCTAssertTrue(model.codeThreadOpen)
         XCTAssertEqual(model.transcript.map(\.text), ["fix the parser", "first answer"])
         await model.sendPrompt("and the tests")
         XCTAssertEqual(model.sessionID, first)

@@ -104,8 +104,17 @@ struct MainColumnView: View {
         ZStack {
             switch model.workspaceMode {
             case .code:
-                CodeHomeView(colors: colors)
-                    .accessibilityID("code-view")
+                if model.codeThreadOpen {
+                    TaskThreadView(
+                        colors: colors,
+                        reduceMotion: reduceMotion,
+                        width: width
+                    )
+                    .accessibilityID("code-task-view")
+                } else {
+                    CodeHomeView(colors: colors)
+                        .accessibilityID("code-view")
+                }
             case .cowork:
                 coworkContent
             }
@@ -273,6 +282,7 @@ struct ArtifactListView: View {
             .frame(maxWidth: 806, alignment: .leading)
             .padding(40)
         }
+        .scrollIndicators(.never)
     }
 }
 
@@ -465,6 +475,7 @@ struct ScheduledEmptyView: View {
             .padding(.bottom, 32)
             .frame(maxWidth: .infinity)
         }
+        .scrollIndicators(.never)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             model.reloadSchedules()

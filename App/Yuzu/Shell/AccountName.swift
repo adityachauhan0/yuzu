@@ -16,8 +16,4 @@ enum AccountName {
         default: return "Good Evening"
         }
     }
-
-    static var coworkWelcomeLine: String {
-        "\(timeOfDayGreeting), \(firstName)"
-    }
 }

@@ -18,6 +18,7 @@
 		3018B85DE91ABAE110769518 /* RealityEvalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679A6099E5921957A4FD3CDF /* RealityEvalTests.swift */; };
 		32FED2D1D36A9B4B0AC4EA9C /* YuzuSwitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 426BB06DF2463BE410883AD4 /* YuzuSwitch.swift */; };
 		45FEE2BDF97DAC96058DF547 /* HandoffPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */; };
+		465510CDEE4B47EA7D4CF205 /* TaskProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B989DD505B8145BFEA91D7CC /* TaskProgress.swift */; };
 		570FF340E02320253373E290 /* TaskThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC6824C46709AB5927357B56 /* TaskThreadView.swift */; };
 		5E2483F700DD7786F9819739 /* code-input-mascot-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = B780E7652ACAC329B417C07F /* code-input-mascot-light.svg */; };
 		65A7360BFA9CD6182ABA8210 /* HandoffImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D31CADE7C7EFEBEB3AD0C6F /* HandoffImage.swift */; };
@@ -42,6 +43,7 @@
 		B6FC6DBF59B421A802ECE1C2 /* YuzuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401FC88A8CEE39936B0187D0 /* YuzuApp.swift */; };
 		B9C3D598CE1068930665C5E9 /* EscapeStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1E66AF026EEF6B3C4BAAC6 /* EscapeStack.swift */; };
 		BC23DF2CF1E2B745CB516CDB /* SearchDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00FBED88D0B21C48B88A9D7C /* SearchDialogView.swift */; };
+		CF86CB495C2AD3D9CB2F2D70 /* PhraseBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C8D2E9D74D6458817C39926 /* PhraseBook.swift */; };
 		D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF17718930133925C4F8BBE /* AccessibilityID.swift */; };
 		DCD199074917318B42A24C7C /* ThreadItems.swift in Sources */ = {isa = PBXBuildFile; fileRef = 063D25A91A1E4CFF89F0C0DD /* ThreadItems.swift */; };
 		DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */; };
@@ -75,6 +77,7 @@
 		468263DB885634B6F698AEDC /* ChildTranscriptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildTranscriptSheet.swift; sourceTree = "<group>"; };
 		5AAA3AED173A741611650265 /* MarkdownReply.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownReply.swift; sourceTree = "<group>"; };
 		5C65F2AC1CFB1B6DF17B9F84 /* V1WindowEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V1WindowEvalTests.swift; sourceTree = "<group>"; };
+		5C8D2E9D74D6458817C39926 /* PhraseBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseBook.swift; sourceTree = "<group>"; };
 		5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffPopover.swift; sourceTree = "<group>"; };
 		679A6099E5921957A4FD3CDF /* RealityEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealityEvalTests.swift; sourceTree = "<group>"; };
 		6BBFE6E5FBFA92A964F1EDB1 /* VisualEvalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEvalTests.swift; sourceTree = "<group>"; };
@@ -90,6 +93,7 @@
 		B43E301AEA93012CE341028E /* code-input-mascot.svg */ = {isa = PBXFileReference; path = "code-input-mascot.svg"; sourceTree = "<group>"; };
 		B55399731AF77487B4742013 /* ViewTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewTestHost.swift; sourceTree = "<group>"; };
 		B780E7652ACAC329B417C07F /* code-input-mascot-light.svg */ = {isa = PBXFileReference; path = "code-input-mascot-light.svg"; sourceTree = "<group>"; };
+		B989DD505B8145BFEA91D7CC /* TaskProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskProgress.swift; sourceTree = "<group>"; };
 		BA191A74C2C1F1FAF7F3EB17 /* TaskSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSessionTests.swift; sourceTree = "<group>"; };
 		BC6824C46709AB5927357B56 /* TaskThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskThreadView.swift; sourceTree = "<group>"; };
 		C38F0DD76C2B806BAD67BC08 /* WindowChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowChrome.swift; sourceTree = "<group>"; };
@@ -196,12 +200,14 @@
 				5E5BE9D647F2BD1148464422 /* HandoffPopover.swift */,
 				6CC3AA2F66A5F5EEEC2CF3F0 /* HandoffToast.swift */,
 				5AAA3AED173A741611650265 /* MarkdownReply.swift */,
+				5C8D2E9D74D6458817C39926 /* PhraseBook.swift */,
 				CC9A112B948847401A1FC533 /* ProjectsView.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
 				00FBED88D0B21C48B88A9D7C /* SearchDialogView.swift */,
 				DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */,
 				3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */,
 				FC9E8C2918F65348B78410BE /* SkillDialogView.swift */,
+				B989DD505B8145BFEA91D7CC /* TaskProgress.swift */,
 				BC6824C46709AB5927357B56 /* TaskThreadView.swift */,
 				063D25A91A1E4CFF89F0C0DD /* ThreadItems.swift */,
 				86A08A4B7046F5B4F2A581B9 /* ThreadToolRows.swift */,
@@ -349,12 +355,14 @@
 				45FEE2BDF97DAC96058DF547 /* HandoffPopover.swift in Sources */,
 				7EF4A93C5DDCBFB33252ED00 /* HandoffToast.swift in Sources */,
 				77097D34D5D3D34A2A9C9340 /* MarkdownReply.swift in Sources */,
+				CF86CB495C2AD3D9CB2F2D70 /* PhraseBook.swift in Sources */,
 				1E1AAB3AD1BE4037AE05C904 /* ProjectsView.swift in Sources */,
 				98C876651522E56C43513FCE /* RootShellView.swift in Sources */,
 				BC23DF2CF1E2B745CB516CDB /* SearchDialogView.swift in Sources */,
 				EE04C56F67291DA4F36539E5 /* SettingsDialog.swift in Sources */,
 				DF9D0C27E70B6257A58FB5C7 /* SidebarView.swift in Sources */,
 				A770A6E58E2F75EF29A4234C /* SkillDialogView.swift in Sources */,
+				465510CDEE4B47EA7D4CF205 /* TaskProgress.swift in Sources */,
 				570FF340E02320253373E290 /* TaskThreadView.swift in Sources */,
 				8A3F3C66D09C63B227D4BF24 /* Theme.swift in Sources */,
 				DCD199074917318B42A24C7C /* ThreadItems.swift in Sources */,

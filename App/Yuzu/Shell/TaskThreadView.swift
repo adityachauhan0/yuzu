@@ -16,6 +16,9 @@ struct TaskThreadView: View {
     @State private var agentMenuOpen = false
     @State private var attachments: [String] = []
     @State private var questionAnswers: [String: String] = [:]
+    @State private var claimedThreadPrompt = false
+    @State private var threadPrompt = 0
+    @ObservedObject private var machine = MachineMonitor.shared
 
     private var presentation: InspectorPresentation {
         model.inspectorPresentation(width: model.contentWidth)
@@ -108,6 +111,7 @@ struct TaskThreadView: View {
                     .padding(.top, 44)
                     .padding(.bottom, 72)
                 }
+                .scrollIndicators(.never)
                 .onChange(of: model.transcript) { _, _ in
                     proxy.scrollTo("thread-end", anchor: .bottom)
                 }
@@ -119,6 +123,20 @@ struct TaskThreadView: View {
             threadBottom
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            claimThreadPrompt()
+            machine.start()
+        }
+        .onChange(of: model.sessionID) { _, _ in
+            threadPrompt = PhraseVisits.claim(.threadPrompt)
+            claimedThreadPrompt = true
+        }
+    }
+
+    private func claimThreadPrompt() {
+        guard !claimedThreadPrompt else { return }
+        threadPrompt = PhraseVisits.claim(.threadPrompt)
+        claimedThreadPrompt = true
     }
 
     /// When the sidebar is closed, the real traffic lights occupy the top-left of this column.
@@ -355,7 +373,7 @@ struct TaskThreadView: View {
         let ready = !model.threadDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return VStack(spacing: 0) {
             VStack(spacing: 0) {
-                TextField("Write a message…", text: $model.threadDraft, axis: .vertical)
+                TextField(PhraseBook.line(.threadPrompt, index: threadPrompt), text: $model.threadDraft, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(YuzuFonts.interface(model.interfaceFont, size: 17))
                     .foregroundStyle(colors.text)
@@ -369,7 +387,7 @@ struct TaskThreadView: View {
                         send()
                         return .handled
                     }
-                    .accessibilityID("thread-input", label: "Write a message")
+                    .accessibilityID("thread-input", label: PhraseBook.line(.threadPrompt, index: threadPrompt))
                 HStack(spacing: 14) {
                     Button {
                         addMenuOpen.toggle()
@@ -598,25 +616,7 @@ struct TaskThreadView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 InspectorSection(title: "Progress", colors: colors) {
-                    if !model.todos.isEmpty {
-                        progressMarks
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(Array(model.todos.enumerated()), id: \.offset) { _, step in
-                                Text(step.content)
-                                    .font(.system(size: 14))
-                                    .strikethrough(step.status == .completed)
-                                    .foregroundStyle(step.status == .inProgress ? colors.text : colors.dim)
-                            }
-                        }
-                        .padding(.horizontal, 15)
-                        .padding(.top, 14)
-                        .padding(.bottom, 12)
-                        .accessibilityID("inspector-todos")
-                    } else {
-                        progressMarks
-                        helpLine("Progress on longer tasks appears here.")
-                            .padding(.top, 41)
-                    }
+                    progressBody
                 }
                 InspectorSection(title: "Review", colors: colors) {
                     ForEach(model.fileReviewRows) { row in
@@ -691,6 +691,7 @@ struct TaskThreadView: View {
                 }
             }
         }
+        .scrollIndicators(.never)
         .frame(maxHeight: 480)
         .fixedSize(horizontal: false, vertical: true)
         .background(colors.preview)
@@ -700,40 +701,69 @@ struct TaskThreadView: View {
         .accessibilityIdentifier("thread-inspector")
     }
 
+    private var progressBody: some View {
+        let steps = model.taskSteps
+        return VStack(alignment: .leading, spacing: 10) {
+            TaskProgressBar(fraction: model.taskProgressFraction, colors: colors)
+                .padding(.horizontal, 15)
+                .padding(.top, 16)
+                .accessibilityID("task-progress-bar", label: model.taskProgressLabel)
+            Text(model.taskProgressLabel)
+                .font(.system(size: 13))
+                .foregroundStyle(colors.dim)
+                .padding(.horizontal, 15)
+            progressMarks
+            if steps.isEmpty {
+                helpLine("Progress on longer tasks appears here.")
+                    .padding(.top, 8)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(steps.prefix(8))) { step in
+                        Text(step.title)
+                            .font(.system(size: 14))
+                            .strikethrough(step.status == .completed)
+                            .foregroundStyle(step.status == .inProgress ? colors.text : colors.dim)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, 15)
+                .padding(.top, 4)
+                .accessibilityID("inspector-todos")
+            }
+            MachineMeters(sample: machine.sample, modelName: model.modelDisplayName, colors: colors)
+                .padding(.horizontal, 15)
+                .padding(.top, 6)
+                .padding(.bottom, 12)
+        }
+    }
+
     private var progressMarks: some View {
-        let shown: [TodoItem] = model.todos.isEmpty
-            ? []
-            : Array(model.todos.prefix(6))
+        let shown = Array(model.taskSteps.prefix(6))
         return HStack(spacing: 0) {
             if shown.isEmpty {
-                step(done: false)
+                stepMark(.pending)
             } else {
-                ForEach(Array(shown.enumerated()), id: \.offset) { index, item in
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, item in
                     if index > 0 {
                         Rectangle().fill(colors.dim).frame(width: 12, height: 1)
                     }
-                    step(done: item.status == .completed)
+                    stepMark(item.status)
                 }
             }
         }
         .padding(.horizontal, 17)
-        .padding(.top, 22)
+        .padding(.top, 6)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(progressLabel)
+        .accessibilityLabel(model.taskProgressLabel)
     }
 
-    private var progressLabel: String {
-        let done = model.todos.filter { $0.status == .completed }.count
-        return model.todos.isEmpty ? "No steps yet" : "\(done) of \(model.todos.count) steps completed"
-    }
-
-    private func step(done: Bool) -> some View {
+    private func stepMark(_ status: TodoItem.Status) -> some View {
         ZStack {
             Circle()
-                .fill(done ? colors.surfaceHover : Color.clear)
+                .fill(status == .completed ? colors.surfaceHover : status == .inProgress ? colors.accent.opacity(0.35) : Color.clear)
             Circle()
-                .stroke(colors.stepBorder, lineWidth: 1)
-            if done {
+                .stroke(status == .inProgress ? colors.accent : colors.stepBorder, lineWidth: 1)
+            if status == .completed {
                 Image(systemName: "checkmark")
                     .font(.system(size: 12, weight: .light))
                     .foregroundStyle(colors.dim)

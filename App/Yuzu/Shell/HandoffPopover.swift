@@ -40,6 +40,8 @@ struct HandoffPopoverRow: View {
     var body: some View {
         Button(action: action) {
             Text(title)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)

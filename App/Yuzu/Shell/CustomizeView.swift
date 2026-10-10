@@ -75,6 +75,7 @@ struct CustomizeView: View {
                     .padding(.bottom, 36)
                     .frame(maxWidth: .infinity)
                 }
+                .scrollIndicators(.never)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
 

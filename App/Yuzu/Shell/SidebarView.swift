@@ -160,38 +160,28 @@ struct SidebarView: View {
 
     private var pinnedSection: some View {
         let pinned = model.pinnedSessions
-        let projects = pinned.reduce(into: [String]()) { list, task in
-            if !list.contains(task.projectPath) { list.append(task.projectPath) }
-        }
         return VStack(alignment: .leading, spacing: 0) {
             Text("Pinned")
                 .font(.system(size: 14))
                 .foregroundStyle(colors.dim)
                 .padding(.bottom, 8)
-            ForEach(projects, id: \.self) { project in
-                Button {
-                    model.selectCowork(.projects)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "folder").font(.system(size: 15)).frame(width: 17)
-                        Text(projectLabel(project))
-                            .font(YuzuFonts.interface(model.interfaceFont, size: 15))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(3)
-                    .frame(minHeight: 31)
-                    .contentShape(Rectangle())
+            if model.workspaceMode == .code {
+                let projects = pinned.reduce(into: [String]()) { list, task in
+                    if !list.contains(task.projectPath) { list.append(task.projectPath) }
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.muted)
-                .accessibilityID("pinned-project")
-                ForEach(pinned.filter { $0.projectPath == project }) { task in
+                ForEach(projects, id: \.self) { project in
+                    Text(model.workspaceLabel(project))
+                        .font(.system(size: 12))
+                        .foregroundStyle(colors.dim)
+                        .padding(.leading, 3)
+                        .padding(.top, 6)
+                    ForEach(pinned.filter { $0.projectPath == project }) { task in
+                        taskButton(task, id: "pinned-task")
+                    }
+                }
+            } else {
+                ForEach(pinned) { task in
                     taskButton(task, id: "pinned-task")
-                        .overlay(alignment: .leading) {
-                            Rectangle().fill(colors.selected).frame(width: 1)
-                        }
-                        .padding(.leading, 15)
                 }
             }
         }
@@ -199,12 +189,11 @@ struct SidebarView: View {
         .padding(.top, 27)
     }
 
-    private func projectLabel(_ path: String) -> String {
-        path == model.defaultWorkspacePath ? "No project" : URL(fileURLWithPath: path).lastPathComponent
-    }
-
     private func taskButton(_ task: SessionSummary, id: String) -> some View {
-        let active = model.workspaceMode == .cowork && model.coworkDestination == .task && model.sessionID == task.id
+        let active = model.sessionID == task.id && (
+            (task.surface == .code && model.workspaceMode == .code && model.codeThreadOpen)
+                || (task.surface == .cowork && model.workspaceMode == .cowork && model.coworkDestination == .task)
+        )
         return Button {
             model.openTask(task.id)
         } label: {
@@ -255,9 +244,23 @@ struct SidebarView: View {
             .padding(.top, 27)
 
             ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(model.taskSessions) { task in
-                        taskButton(task, id: "sidebar-task")
+                VStack(alignment: .leading, spacing: 2) {
+                    if model.workspaceMode == .code {
+                        ForEach(model.codeWorkspaceGroups, id: \.name) { group in
+                            Text(group.name)
+                                .font(.system(size: 12))
+                                .foregroundStyle(colors.dim)
+                                .padding(.leading, 20)
+                                .padding(.top, 10)
+                                .accessibilityID("code-workspace-\(group.name)")
+                            ForEach(group.tasks) { task in
+                                taskButton(task, id: "sidebar-task")
+                            }
+                        }
+                    } else {
+                        ForEach(model.taskSessions) { task in
+                            taskButton(task, id: "sidebar-task")
+                        }
                     }
                 }
                 .padding(.leading, 13)

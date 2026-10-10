@@ -38,6 +38,7 @@ struct ProjectsView: View {
             .frame(maxWidth: 806, alignment: .leading)
             .padding(40)
         }
+        .scrollIndicators(.never)
     }
 
     private func projectRow(_ url: URL) -> some View {

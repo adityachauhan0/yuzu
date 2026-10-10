@@ -365,8 +365,7 @@ struct SettingsDialog: View {
                                     .foregroundStyle(colors.text)
                                     .lineLimit(1)
                                 Spacer()
-                                Text(task.projectPath == model.defaultWorkspacePath
-                                     ? "No project" : URL(fileURLWithPath: task.projectPath).lastPathComponent)
+                                Text(model.workspaceLabel(task.projectPath))
                                     .font(.system(size: 13))
                                     .foregroundStyle(colors.subtle)
                             }

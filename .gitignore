@@ -1,0 +1,11 @@
+.build/
+DerivedData/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+
+# Research, handoff, and visual captures. They stay on disk and out of the repo.
+/docs/
+/design/
+/evals/
