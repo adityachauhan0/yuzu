@@ -1,31 +1,47 @@
 # Visual verification — `cursor/harness-architecture`
 
-Captured **2026-10-10** on macOS (arm64). Goldens from `design/product-handoff/index.html` at 1440×900 via headless Chrome + in-page route setup. Actuals from Debug `Yuzu.app` window captures (`screencapture -R` from Accessibility window bounds). Routes that need a specific screen use launch env `YUZU_UI_ROUTE` (same names as `UITestRoute`); theme for captures uses `YUZU_UI_THEME=dark|light` (same as Settings → General). Scheduled nav still works from the sidebar in a normal session.
+Captured **2026-10-10** on macOS (arm64). Goldens from `design/product-handoff/index.html` at 1440×900 via headless Chrome + in-page route setup. Actuals from Debug `Yuzu.app` window captures (`screencapture -l` with `CGWindow` id at 1440×900 default size). Routes that need a specific screen use launch env `YUZU_UI_ROUTE` (same names as `UITestRoute`); theme for captures uses `YUZU_UI_THEME=dark|light` (same as Settings → General). Scheduled nav still works from the sidebar in a normal session.
 
 ## Routes captured
 
 | Route | Golden (dark/light) | Actual (dark) | Actual (light) |
 | --- | --- | --- | --- |
-| G1 Code home | `code-home-*.png` | `actual/code-home-dark.png` | — |
+| G1 Code home | `code-home-*.png` | `actual/code-home-dark.png` | `actual/code-home-light.png` |
 | G2 Cowork new | `cowork-new-*.png` | `actual/cowork-new-dark.png` | `actual/cowork-new-light.png` |
-| G3 Task + inspector | `cowork-task-*.png` | `actual/cowork-task-dark.png` | — |
-| G4 Scheduled empty | `scheduled-empty-*.png` | `actual/scheduled-empty-dark.png` | — |
+| G3 Task + inspector | `cowork-task-*.png` | `actual/cowork-task-dark.png` | `actual/cowork-task-light.png` |
+| G4 Scheduled empty | `scheduled-empty-*.png` | `actual/scheduled-empty-dark.png` | `actual/scheduled-empty-light.png` |
 | G5 Customize skills | `customize-skills-*.png` | `actual/customize-skills-dark.png` | `actual/customize-skills-light.png` |
-| G6 Projects / Artifacts | `cowork-projects-*.png`, `cowork-artifacts-*.png` | `actual/cowork-projects-dark.png`, `actual/cowork-artifacts-dark.png` | — |
-| G7 Settings Code | `settings-code-*.png` | `actual/settings-code-dark.png` | — |
-| G8 Settings General (Dark) | `settings-general-*.png` | `actual/settings-general-dark.png` | — |
+| G6 Projects / Artifacts | `cowork-projects-*.png`, `cowork-artifacts-*.png` | `actual/cowork-projects-dark.png`, `actual/cowork-artifacts-dark.png` | `actual/cowork-projects-light.png`, `actual/cowork-artifacts-light.png` |
+| G7 Settings Code | `settings-code-*.png` | `actual/settings-code-dark.png` | `actual/settings-code-light.png` |
+| G8 Settings General (Dark) | `settings-general-*.png` | `actual/settings-general-dark.png` | `actual/settings-general-light.png` |
+
+### Light actuals recaptured 2026-10-10
+
+Launch: `open -na Yuzu.app --env YUZU_UI_THEME=light --env YUZU_UI_ROUTE=<route>`.
+
+| File | `YUZU_UI_ROUTE` |
+| --- | --- |
+| `code-home-light.png` | `code` |
+| `cowork-task-light.png` | `coworkTask` |
+| `scheduled-empty-light.png` | `coworkScheduled` |
+| `cowork-projects-light.png` | `coworkProjects` |
+| `cowork-artifacts-light.png` | `coworkArtifacts` |
+| `settings-code-light.png` | `settingsCode` |
+| `settings-general-light.png` | `settingsGeneral` |
+
+All seven routes opened successfully; none skipped.
 
 ## G2 Cowork new — region check
 
 **Present in both:** 42px cowork mascot + **Good {Morning\|Afternoon\|Evening}, {first name}**, composer placeholder **How can I help you today?**, composer tool row (**+** menu with **Attach a file** / **Choose a project**, model button with **High / Medium / Low** effort for the loaded model name, **No project** / workspace project bar), three ideas that fill the composer without sending, sidebar chrome.
 
-**Still open vs golden:** SwiftUI vs HTML typography and spacing (welcome scale, composer radius, idea row art). Empty-submit toast **Write a task to get started.** not wired yet.
+**Still open vs golden:** SwiftUI vs HTML typography and spacing (welcome scale, composer radius, idea row art). Empty submit now toasts **Write a task to get started.** (handoff `.toast` styling); Enter sends, Shift-Enter inserts a newline.
 
 ## G4 Scheduled empty — region check
 
 **Present in both:** title band, intro with `/schedule`, awake sentence + **Keep awake**, empty **No scheduled tasks yet.**, handoff-style stopwatch illustration (inline paths, not SF Symbol), wave divider before examples, six example cards, toolbar search / sort / **New task** menu.
 
-**Still open vs golden:** layout density (example grid spacing, page width), scheduled-empty-light actual not captured.
+**Still open vs golden:** layout density (example grid spacing, page width).
 
 ## G5 Customize skills — region check
 
@@ -57,12 +73,10 @@ Empty panels match in spirit (no project / no artifacts + CTA); golden uses pane
 
 ## Verdict
 
-**G2 and G5** composer tools and Customize toolbar match the handoff controls in dark actuals (recaptured 2026-10-10). **G2, G4, G5, G1, G3, G7, and G8** cover the required regions in dark theme with in-app navigation or launch routes; **G2 and G5** also have light actuals via `YUZU_UI_THEME=light` (light PNGs not recaptured this pass). Harness accessibility tests (V1–V8) remain green.
+**G2 and G5** composer tools and Customize toolbar match the handoff controls in dark actuals (recaptured 2026-10-10). **G1–G8** have dark actuals; light actuals now include **code-home**, **cowork-task**, **scheduled-empty**, **cowork-projects**, **cowork-artifacts**, **settings-code**, and **settings-general** (plus earlier **cowork-new** and **customize-skills**). Harness accessibility tests **V1–V9** remain green.
 
 ## Still open (summary)
 
-- Light-theme `actual/*-light.png` for routes beyond prior G2/G5 captures (and scheduled empty).
 - Pixel spacing and font metrics vs handoff HTML across all routes.
-- Cowork new idea-card art; empty-submit toast.
+- Cowork new idea-card art.
 - Code home live metrics / heatmap sample parity when DB is empty (by design — do not fake).
-- Remaining light actuals for G1, G3, G4, G6, G7, G8.

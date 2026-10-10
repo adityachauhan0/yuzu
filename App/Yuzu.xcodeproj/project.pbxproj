@@ -25,6 +25,7 @@
 		98C876651522E56C43513FCE /* RootShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A591E69A9AD62982B71B2 /* RootShellView.swift */; };
 		AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */; };
 		B1C2D3E4F5061728394A5B6C /* HandoffPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */; };
+		F1E2D3C4B5A69788695041322 /* HandoffToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D3C4B5A6978869504132F10 /* HandoffToast.swift */; };
 		B2C3D4E5F60718293A4B5C6D /* SkillDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */; };
 		B6FC6DBF59B421A802ECE1C2 /* YuzuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401FC88A8CEE39936B0187D0 /* YuzuApp.swift */; };
 		D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF17718930133925C4F8BBE /* AccessibilityID.swift */; };
@@ -70,6 +71,7 @@
 		DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDialog.swift; sourceTree = "<group>"; };
 		E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomizeView.swift; sourceTree = "<group>"; };
 		C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffPopover.swift; sourceTree = "<group>"; };
+		E2D3C4B5A6978869504132F10 /* HandoffToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffToast.swift; sourceTree = "<group>"; };
 		D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillDialogView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -155,6 +157,7 @@
 				89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */,
 				E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */,
 				C2D3E4F5061728394A5B6C7D8 /* HandoffPopover.swift */,
+				E2D3C4B5A6978869504132F10 /* HandoffToast.swift */,
 				D3E4F5061728394A5B6C7D8E9 /* SkillDialogView.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
 				DA1528682DC5B38FCFF05D60 /* SettingsDialog.swift */,
@@ -295,6 +298,7 @@
 				074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */,
 				AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */,
 				B1C2D3E4F5061728394A5B6C /* HandoffPopover.swift in Sources */,
+				F1E2D3C4B5A69788695041322 /* HandoffToast.swift in Sources */,
 				B2C3D4E5F60718293A4B5C6D /* SkillDialogView.swift in Sources */,
 				98C876651522E56C43513FCE /* RootShellView.swift in Sources */,
 				EE04C56F67291DA4F36539E5 /* SettingsDialog.swift in Sources */,

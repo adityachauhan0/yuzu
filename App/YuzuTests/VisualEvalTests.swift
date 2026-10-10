@@ -136,6 +136,19 @@ final class VisualEvalTests: XCTestCase {
         XCTAssertFalse(ViewTestHost.containsIdentifier("inspector-layout-overlay", in: wide))
     }
 
+    func testV9_emptyCoworkSubmitToast() async throws {
+        let model = try makeModel()
+        model.applyTestRoute(.coworkNew)
+        await model.submitCoworkHomeTask("   ")
+        XCTAssertEqual(model.toastMessage, "Write a task to get started.")
+        let host = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("toast", in: host))
+        XCTAssertEqual(
+            ViewTestHost.accessibilityLabel(forIdentifier: "toast", in: host),
+            "Write a task to get started."
+        )
+    }
+
     func testV8_manualAndLocal() async throws {
         let model = try makeModel()
         model.applyTestRoute(.code)

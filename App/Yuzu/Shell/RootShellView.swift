@@ -25,6 +25,14 @@ struct RootShellView: View {
                     SettingsDialog(colors: colors)
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let message = model.toastMessage {
+                    HandoffToast(message: message, colors: colors)
+                        .padding(.trailing, 26)
+                        .padding(.bottom, 24)
+                        .transition(.opacity)
+                }
+            }
             .onAppear { model.contentWidth = proxy.size.width }
             .onChange(of: proxy.size.width) { _, width in
                 model.contentWidth = width

@@ -59,7 +59,14 @@ struct CoworkHomeView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
                     .padding(.bottom, 8)
-                    .onSubmit { sendTask() }
+                    .onKeyPress { press in
+                        guard press.key == .return else { return .ignored }
+                        if press.modifiers.contains(.shift) {
+                            return .ignored
+                        }
+                        sendTask()
+                        return .handled
+                    }
 
                 HStack(spacing: 10) {
                     Button {
@@ -255,11 +262,10 @@ struct CoworkHomeView: View {
     }
 
     private func sendTask() {
-        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
         Task {
-            await model.sendPrompt(trimmed)
-            prompt = ""
+            if await model.submitCoworkHomeTask(prompt) {
+                prompt = ""
+            }
         }
     }
 

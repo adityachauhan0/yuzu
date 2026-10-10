@@ -46,8 +46,10 @@ final class AppModel: ObservableObject {
     @Published var keepAwake = false
     @Published var reasoningEffort: ReasoningEffort = .high
     @Published var coworkProjectName = "No project"
+    @Published var toastMessage: String?
 
     let store: HarnessStore
+    private var toastDismissTask: Task<Void, Never>?
     let runner: SessionRunner
     let sessionID: String
 
@@ -128,6 +130,27 @@ final class AppModel: ObservableObject {
             showTaskThread = true
             coworkDestination = .task
         }
+    }
+
+    func showToast(_ message: String) {
+        toastMessage = message
+        toastDismissTask?.cancel()
+        toastDismissTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            toastMessage = nil
+        }
+    }
+
+    @discardableResult
+    func submitCoworkHomeTask(_ text: String) async -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            showToast("Write a task to get started.")
+            return false
+        }
+        await sendPrompt(trimmed)
+        return true
     }
 
     func permissionEffect(manualPressed: Bool) -> PermissionEffect {
