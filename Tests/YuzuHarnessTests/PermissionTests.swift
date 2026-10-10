@@ -26,6 +26,12 @@ struct PermissionTests {
             PermissionRule(action: "edit", resource: "*", effect: .deny),
         ]
         #expect(PermissionEvaluator.evaluateRules(rules, action: "edit", resource: "*") == .deny)
+
+        let reversed = [
+            PermissionRule(action: "edit", resource: "*", effect: .deny),
+            PermissionRule(action: "edit", resource: "*", effect: .allow),
+        ]
+        #expect(PermissionEvaluator.evaluateRules(reversed, action: "edit", resource: "*") == .allow)
     }
 
     @Test func P2_defaultIsAsk() {
@@ -74,7 +80,7 @@ struct PermissionTests {
         )
     }
 
-    @Test func P5_planDeniesEditAndBash() {
+    @Test func P5_planDeniesEditAndBash() async throws {
         let savedAllow = [PermissionRule(action: "edit", resource: "*", effect: .allow)]
         #expect(
             PermissionEvaluator.effect(
@@ -102,6 +108,50 @@ struct PermissionTests {
                 savedAllows: [],
                 manualPressed: true
             ) == .deny
+        )
+
+        let project = try makeWorkspace()
+        let store = try HarnessStore(path: project.appendingPathComponent("session.sqlite").path)
+        try store.insertPermissionRule(
+            projectPath: project.path,
+            rule: PermissionRule(action: "edit", resource: "*", effect: .allow)
+        )
+        let sessionID = "s-plan-p5"
+        try store.insertSession(
+            SessionRecord(
+                id: sessionID,
+                projectPath: project.path,
+                agentID: "plan",
+                modelIdentifier: "test",
+                epochID: "epoch-1",
+                stepCount: 0,
+                supportsMultipleToolCalls: true,
+                status: .idle,
+                modelMessageCursor: 0
+            )
+        )
+        let editCall = ToolCall(
+            id: "c1",
+            name: "edit",
+            arguments: .object([
+                "path": .string("a.swift"),
+                "old_string": .string("a"),
+                "new_string": .string("b"),
+            ])
+        )
+        let script = ScriptedTurn(turns: [
+            AssistantTurn(text: "", toolCalls: [editCall]),
+            AssistantTurn(text: "done"),
+        ])
+        let runner = SessionRunner(sessionID: sessionID, store: store, model: script)
+        await runner.prompt("go", delivery: .queue)
+
+        let events = try store.harnessEvents(sessionID: sessionID)
+        #expect(!events.contains { $0.name == "permission.asked" })
+        #expect(
+            try store.messages(sessionID: sessionID).contains {
+                $0.role == .tool && $0.text == PermissionGate.denialMessage
+            }
         )
     }
 
@@ -176,7 +226,7 @@ struct PermissionTests {
             )
         )
         let path = "src/a.swift"
-        let editCall = ToolCall(
+        let editCall1 = ToolCall(
             id: "c1",
             name: "edit",
             arguments: .object([
@@ -185,8 +235,18 @@ struct PermissionTests {
                 "new_string": .string("b"),
             ])
         )
+        let editCall2 = ToolCall(
+            id: "c2",
+            name: "edit",
+            arguments: .object([
+                "path": .string(path),
+                "old_string": .string("b"),
+                "new_string": .string("c"),
+            ])
+        )
         let script = ScriptedTurn(turns: [
-            AssistantTurn(text: "", toolCalls: [editCall]),
+            AssistantTurn(text: "", toolCalls: [editCall1]),
+            AssistantTurn(text: "", toolCalls: [editCall2]),
             AssistantTurn(text: "done"),
         ])
         let runner = SessionRunner(sessionID: sessionID, store: store, model: script)
@@ -200,15 +260,18 @@ struct PermissionTests {
         await runner.replyPermission(pending.id, .always)
         await runTask.value
 
+        let saved = try store.permissionRules(projectPath: project.path)
         #expect(
-            PermissionEvaluator.effect(
-                agentID: "build",
-                action: "edit",
-                resource: path,
-                savedAllows: try store.permissionRules(projectPath: project.path),
-                manualPressed: true
-            ) == .allow
+            saved.contains {
+                $0.action == "edit" && $0.resource == path && $0.effect == .allow
+            }
         )
+        let asked = try store.harnessEvents(sessionID: sessionID).filter { $0.name == "permission.asked" }
+        #expect(asked.count == 1)
+        let edited = try store.messages(sessionID: sessionID).filter {
+            $0.role == .tool && $0.text.contains("Edited \(path)")
+        }
+        #expect(edited.count == 2)
     }
 
     @Test func P8_rejectContinues() async throws {
@@ -304,7 +367,7 @@ struct PermissionTests {
         )
     }
 
-    @Test func P10_manualToggle() {
+    @Test func P10_manualToggle() async throws {
         #expect(
             PermissionEvaluator.effect(
                 agentID: "build",
@@ -340,6 +403,67 @@ struct PermissionTests {
                 savedAllows: [],
                 manualPressed: false
             ) == .ask
+        )
+
+        let project = try makeWorkspace()
+        let store = try HarnessStore(path: project.appendingPathComponent("session.sqlite").path)
+        let sessionID = "s-manual"
+        try store.insertSession(
+            SessionRecord(
+                id: sessionID,
+                projectPath: project.path,
+                agentID: "build",
+                modelIdentifier: "test",
+                epochID: "epoch-1",
+                stepCount: 0,
+                supportsMultipleToolCalls: true,
+                status: .idle,
+                modelMessageCursor: 0,
+                manualPressed: false
+            )
+        )
+        let editCall = ToolCall(
+            id: "c1",
+            name: "edit",
+            arguments: .object([
+                "path": .string("a.swift"),
+                "old_string": .string("a"),
+                "new_string": .string("b"),
+            ])
+        )
+        let bashCall = ToolCall(
+            id: "c2",
+            name: "bash",
+            arguments: .object(["command": .string("echo hi")])
+        )
+        let script = ScriptedTurn(turns: [
+            AssistantTurn(text: "", toolCalls: [editCall]),
+            AssistantTurn(text: "", toolCalls: [bashCall]),
+            AssistantTurn(text: "done"),
+        ])
+        let runner = SessionRunner(sessionID: sessionID, store: store, model: script)
+        _ = try store.appendInbox(sessionID: sessionID, text: "go", delivery: .queue)
+        let runTask = Task { await runner.run() }
+
+        try await waitUntil(timeout: 3) {
+            !(try store.pendingPermissionRequests(sessionID: sessionID).isEmpty)
+        }
+        let pending = try #require(try store.pendingPermissionRequests(sessionID: sessionID).first)
+        #expect(pending.action == "bash")
+        await runner.replyPermission(pending.id, .once)
+        await runTask.value
+
+        let asked = try store.harnessEvents(sessionID: sessionID).filter { $0.name == "permission.asked" }
+        #expect(asked.count == 1)
+        #expect(
+            try store.messages(sessionID: sessionID).contains {
+                $0.role == .tool && $0.text.contains("Edited")
+            }
+        )
+        #expect(
+            try store.messages(sessionID: sessionID).contains {
+                $0.role == .tool && $0.text.contains("Ran:")
+            }
         )
     }
 }
