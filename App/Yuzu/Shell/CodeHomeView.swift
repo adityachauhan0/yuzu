@@ -50,7 +50,7 @@ struct CodeHomeView: View {
                                 .background(colors.preview)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .padding(.top, 20)
                         .padding(.leading, 10)
                         .accessibilityID("code-task-preview", label: preview)
@@ -71,7 +71,9 @@ struct CodeHomeView: View {
             machine.start()
         }
         .dismissesOnEscape($addMenuOpen)
+        .dismissesOnOutsideClick($addMenuOpen)
         .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnOutsideClick($modelMenuOpen)
     }
 
     private var heading: some View {
@@ -91,7 +93,7 @@ struct CodeHomeView: View {
                 }
                 .accessibilityIdentifier("data-mascot-cowork")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .accessibilityLabel("Return to Cowork")
 
             Text(PhraseBook.line(.codeGreeting, index: codeGreeting))
@@ -169,7 +171,7 @@ struct CodeHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .foregroundStyle(selected ? colors.text : colors.dim)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
     }
 
     private func usagePeriodButton(_ period: CodeUsagePeriod) -> some View {
@@ -185,7 +187,7 @@ struct CodeHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .foregroundStyle(selected ? colors.text : colors.dim)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
     }
 
     private var overviewPanel: some View {
@@ -282,7 +284,7 @@ struct CodeHomeView: View {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
                     TextField(PhraseBook.line(.codePrompt, index: codePrompt), text: $prompt, axis: .vertical)
-                        .textFieldStyle(.plain)
+                        .textFieldStyle(.plain).yuzuFieldHover()
                         .lineLimit(1...6)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
@@ -304,7 +306,7 @@ struct CodeHomeView: View {
                                 .background(promptReady ? colors.surfaceHover : Color.clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 9))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .foregroundStyle(promptReady ? colors.softText : colors.dim)
                         .accessibilityID(promptReady ? "code-submit-ready" : "code-submit", label: "Send Code task")
                     }
@@ -325,7 +327,7 @@ struct CodeHomeView: View {
                             .background(colors.surfaceHover)
                             .clipShape(RoundedRectangle(cornerRadius: 7))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(colors.muted)
                     .accessibilityID("code-folder")
                     .padding(.leading, 16)
@@ -354,7 +356,8 @@ struct CodeHomeView: View {
                         .foregroundStyle(colors.dim)
                         .frame(width: 26)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
+                .popupChrome()
                 .accessibilityLabel("Add context")
 
                 Button {
@@ -366,7 +369,7 @@ struct CodeHomeView: View {
                         .lineLimit(1)
                         .padding(.horizontal, 4)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .accessibilityID("code-manual", label: model.permissionPosture.label)
 
                 Spacer()
@@ -386,7 +389,8 @@ struct CodeHomeView: View {
                             .background(colors.surfaceHover)
                             .clipShape(RoundedRectangle(cornerRadius: 7))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.muted)
                     .accessibilityID("code-model-button")
 
@@ -405,7 +409,8 @@ struct CodeHomeView: View {
                         .foregroundStyle(colors.text)
                         .padding(.horizontal, 4)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
+                .popupChrome()
                 .accessibilityID("code-effort")
             }
 
@@ -469,6 +474,7 @@ struct CodeHomeView: View {
             }
         }
         .dismissesOnEscape($effortMenuOpen)
+        .dismissesOnOutsideClick($effortMenuOpen)
     }
 
     private func claimCodePhrases() {

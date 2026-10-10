@@ -19,7 +19,7 @@ struct SearchDialogView: View {
                     .foregroundStyle(colors.muted)
                     .padding(.bottom, 8)
                 TextField("Search tasks and sections", text: $query)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .font(.system(size: 15))
                     .foregroundStyle(colors.text)
                     .padding(.horizontal, 12)
@@ -87,7 +87,7 @@ private struct SearchResultRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 7))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .onHover { hovering = $0 }
     }
 }

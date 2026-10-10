@@ -56,7 +56,7 @@ struct SettingsDialog: View {
                 .font(.system(size: 14))
                 .frame(width: 32, height: 32)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .foregroundStyle(colors.muted)
         .padding(10)
         .accessibilityID("settings-close", label: "Close settings")
@@ -76,7 +76,7 @@ struct SettingsDialog: View {
                     .font(.system(size: 15))
                     .foregroundStyle(colors.subtle)
                 TextField("Search", text: $tabSearch)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .font(.system(size: 15))
                     .foregroundStyle(colors.softText)
                     .accessibilityID("settings-search", label: "Search settings")
@@ -148,7 +148,7 @@ struct SettingsDialog: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .foregroundStyle(model.settingsTab == tab ? colors.text : colors.muted)
         .accessibilityIdentifier("settings-tab-\(tab.rawValue)")
     }
@@ -168,31 +168,60 @@ struct SettingsDialog: View {
         }
     }
 
+    private var settingsPageTitle: (text: String, identifier: String?) {
+        switch model.settingsTab {
+        case .general: ("General", "settings-general-heading")
+        case .privacy: ("Privacy", nil)
+        case .usage: ("Usage", nil)
+        case .code: ("Code appearance", "settings-code-appearance-heading")
+        case .cowork: ("Cowork", nil)
+        case .importExport: ("Import & export", nil)
+        case .system: ("System", nil)
+        case .developer: ("Developer", nil)
+        case .skills: ("Skills", nil)
+        case .connectors: ("Connectors", nil)
+        }
+    }
+
     @ViewBuilder
     private var settingsMain: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch model.settingsTab {
-                    case .general: generalPanel
-                    case .privacy: privacyPanel
-                    case .usage: usagePanel
-                    case .code: codePanel
-                    case .cowork: coworkPanel
-                    case .importExport: importExportPanel
-                    case .system: systemPanel
-                    case .developer: developerPanel
-                    case .skills: CustomizeView(colors: colors, embeddedTab: .skills)
-                    case .connectors: CustomizeView(colors: colors, embeddedTab: .connectors)
-                    }
-                }
-                .padding(24)
+        let page = settingsPageTitle
+        VStack(alignment: .leading, spacing: 0) {
+            heading(page.text)
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .onChange(of: model.settingsAnchor, initial: true) { _, _ in
-                revealAnchor(proxy)
+                .background(colors.canvas)
+                .accessibilityID(page.identifier ?? "settings-page-heading", label: page.text)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        switch model.settingsTab {
+                        case .general: generalPanel
+                        case .privacy: privacyPanel
+                        case .usage: usagePanel
+                        case .code: codePanel
+                        case .cowork: coworkPanel
+                        case .importExport: importExportPanel
+                        case .system: systemPanel
+                        case .developer: developerPanel
+                        case .skills: CustomizeView(colors: colors, embeddedTab: .skills)
+                        case .connectors: CustomizeView(colors: colors, embeddedTab: .connectors)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollIndicators(.never)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onChange(of: model.settingsAnchor, initial: true) { _, _ in
+                    revealAnchor(proxy)
+                }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func revealAnchor(_ proxy: ScrollViewProxy) {
@@ -210,8 +239,6 @@ struct SettingsDialog: View {
 
     private var generalPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("General")
-                .accessibilityID("settings-general-heading")
             HStack {
                 Text("Avatar")
                     .foregroundStyle(colors.text)
@@ -222,7 +249,7 @@ struct SettingsDialog: View {
                         .clipShape(Circle())
                         .background(Circle().fill(colors.surfaceHover))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .accessibilityID("settings-avatar", label: "Choose avatar")
             }
             Text("What best describes your work?")
@@ -235,7 +262,7 @@ struct SettingsDialog: View {
                 .foregroundStyle(colors.muted)
             TextField("Instructions for Yuzu", text: $model.yuzuInstructions, axis: .vertical)
                 .lineLimit(3...6)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(10)
                 .background(colors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -270,7 +297,6 @@ struct SettingsDialog: View {
 
     private var privacyPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("Privacy")
             settingsRow("Transcripts and weights", "On this Mac")
             settingsRow("Store", model.storeFilePath)
             callout("Sessions are not uploaded.")
@@ -280,12 +306,11 @@ struct SettingsDialog: View {
     private var usagePanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             let metrics = model.usageMetrics(period: model.usagePeriod)
-            heading("Usage")
             HStack(spacing: 4) {
                 ForEach(CodeUsagePeriod.allCases, id: \.self) { period in
                     let selected = model.usagePeriod == period
                     Button(period.rawValue) { model.usagePeriod = period }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .font(.system(size: 14))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -306,9 +331,6 @@ struct SettingsDialog: View {
 
     private var codePanel: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("Code appearance")
-                .accessibilityID("settings-code-appearance-heading")
-                .accessibilityLabel("Code appearance")
             HStack(alignment: .top, spacing: 16) {
                 codeThemeColumn(
                     label: "Light code theme",
@@ -328,7 +350,7 @@ struct SettingsDialog: View {
             Text("Code font")
                 .foregroundStyle(colors.muted)
             TextField("e.g. JetBrains Mono", text: $model.codeFont)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(10)
                 .background(colors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -375,7 +397,7 @@ struct SettingsDialog: View {
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .accessibilityID("settings-session-row", label: task.displayTitle)
                     }
                 }
@@ -409,7 +431,6 @@ struct SettingsDialog: View {
 
     private var coworkPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("Cowork")
             settingsRow("Files", model.workspaceProjectPath)
             plainButton("Change") { chooseCoworkFolder() }
             Text("Trusted folders are paths Yuzu may use without asking again.")
@@ -427,7 +448,7 @@ struct SettingsDialog: View {
                 .foregroundStyle(colors.muted)
             TextField("Global instructions", text: $model.coworkInstructions, axis: .vertical)
                 .lineLimit(3...6)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(10)
                 .background(colors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -465,7 +486,6 @@ struct SettingsDialog: View {
 
     private var importExportPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("Import & export")
             plainButton("Export sessions") { exportSessions() }
             plainButton("Import sessions") { importSessions() }
         }
@@ -473,7 +493,6 @@ struct SettingsDialog: View {
 
     private var systemPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("System")
             settingsRow("App version", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.1")
             settingsRow("uzu", "0.6.2")
             settingsRow("Loaded model", model.modelDisplayName)
@@ -485,7 +504,6 @@ struct SettingsDialog: View {
 
     private var developerPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("Developer")
             Text("Local MCP servers")
                 .foregroundStyle(colors.muted)
             if model.mcpServerLines.isEmpty {
@@ -508,7 +526,7 @@ struct SettingsDialog: View {
             TextField("mcp_servers", text: $model.mcpConfig, axis: .vertical)
                 .lineLimit(4...8)
                 .font(.system(size: 13, design: .monospaced))
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(10)
                 .background(colors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -578,7 +596,7 @@ struct SettingsDialog: View {
         HStack(spacing: 6) {
             ForEach(options, id: \.self) { option in
                 Button(option) { selection.wrappedValue = option }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .font(.system(size: 14))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -591,7 +609,7 @@ struct SettingsDialog: View {
 
     private func plainButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .font(.system(size: 14))
             .foregroundStyle(colors.text)
             .padding(.horizontal, 14)
@@ -652,7 +670,7 @@ struct SettingsDialog: View {
                 HStack {
                     Spacer()
                     Button("Close") { fontLicensesOpen = false }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .font(.system(size: 15))
                         .foregroundStyle(colors.text)
                         .padding(.horizontal, 14)

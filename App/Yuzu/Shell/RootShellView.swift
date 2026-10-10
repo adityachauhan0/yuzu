@@ -36,7 +36,7 @@ struct RootShellView: View {
                             .font(.system(size: 14))
                             .frame(width: 28, height: 28)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(colors.muted)
                     .padding(.leading, WindowChrome.leading * 2 + WindowChrome.trafficLightsWidth)
                     .frame(height: WindowChrome.barHeight)
@@ -67,6 +67,7 @@ struct RootShellView: View {
                 }
             }
             .background(EscapeKeyMonitor { model.handleEscape() })
+            .background(OutsideClickMonitor { model.outsideClicks.closeAll() })
             .overlay {
                 if let request = model.pendingPermission {
                     PermissionAskView(colors: colors, request: request)
@@ -187,7 +188,7 @@ struct EmptyPanelView: View {
             Button("New task") {
                 model.selectCowork(.new)
             }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
                 .background(colors.selected)
@@ -218,7 +219,7 @@ struct ChangelogView: View {
                 HStack {
                     Spacer()
                     Button("Close") { model.changelogPresented = false }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .foregroundStyle(colors.text)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 9)
@@ -275,7 +276,7 @@ struct ArtifactListView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .accessibilityID("artifact-\(URL(fileURLWithPath: path).lastPathComponent)")
                 }
             }
@@ -332,7 +333,7 @@ struct PermissionAskView: View {
 
     private func permissionButton(_ title: String, id: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .font(.system(size: 14))
             .foregroundStyle(colors.text)
             .padding(.horizontal, 14)
@@ -482,7 +483,9 @@ struct ScheduledEmptyView: View {
             consumeScheduleComposer()
         }
         .dismissesOnEscape($sortMenuOpen)
+        .dismissesOnOutsideClick($sortMenuOpen)
         .dismissesOnEscape($newMenuOpen)
+        .dismissesOnOutsideClick($newMenuOpen)
         .dismissesOnEscape($dialogOpen)
         .dismissesOnEscape(when: searchVisible) {
             searchVisible = false
@@ -509,7 +512,7 @@ struct ScheduledEmptyView: View {
                         .font(.system(size: 16))
                         .frame(width: 35, height: 37)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .foregroundStyle(colors.muted)
                 .background(searchVisible ? colors.selected : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -532,7 +535,8 @@ struct ScheduledEmptyView: View {
                     .background(colors.selected)
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
+                .popupChrome()
                 .accessibilityID("scheduled-sort-button")
 
                 Button {
@@ -551,14 +555,15 @@ struct ScheduledEmptyView: View {
                     .background(colors.softText)
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
+                .popupChrome()
                 .accessibilityID("scheduled-new-button")
             }
             .padding(.top, 3)
 
             if searchVisible {
                 TextField("Search scheduled tasks", text: $searchQuery)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .font(.system(size: 15))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
@@ -585,13 +590,13 @@ struct ScheduledEmptyView: View {
                         newMenuOpen = false
                         openScheduleDialog(name: "", prompt: "", time: "")
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .accessibilityID("create-schedule-option")
                     Button("New task") {
                         newMenuOpen = false
                         model.selectCowork(.new)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .accessibilityID("new-regular-task-option")
                 }
                 .padding(.top, 45)
@@ -609,7 +614,7 @@ struct ScheduledEmptyView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .foregroundStyle(colors.text)
         .accessibilityIdentifier("scheduled-sort-\(label)")
     }
@@ -624,6 +629,7 @@ struct ScheduledEmptyView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
         .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
+        .popupChrome()
     }
 
     private func scheduleExample(_ example: (title: String, description: String, time: String)) -> some View {
@@ -651,7 +657,7 @@ struct ScheduledEmptyView: View {
             }
             .frame(minHeight: 103, alignment: .topLeading)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .accessibilityID("schedule-example-\(example.title)")
     }
 
@@ -722,7 +728,7 @@ struct ScheduledEmptyView: View {
                 HStack {
                     Spacer()
                     Button("Cancel") { dialogOpen = false }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .foregroundStyle(colors.text)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 9)
@@ -738,7 +744,7 @@ struct ScheduledEmptyView: View {
                             model.showToast("Use a time like Weekdays at 8:00 AM.")
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(colors.onAccent)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
@@ -766,14 +772,14 @@ struct ScheduledEmptyView: View {
             if axis == .vertical {
                 TextField("", text: text, axis: .vertical)
                     .lineLimit(3...6)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .padding(10)
                     .background(colors.canvas)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
             } else {
                 TextField(title == "Schedule" ? "Weekdays at 8:00 AM" : "", text: text)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .padding(10)
                     .background(colors.canvas)
                     .clipShape(RoundedRectangle(cornerRadius: 8))

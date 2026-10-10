@@ -53,10 +53,15 @@ struct TaskThreadView: View {
         .accessibilityID("inspector-layout-\(presentation.rawValue)")
         .animation(MotionTiming.animation(reduceMotion: reduceMotion, drawer: true), value: model.inspectorOpen)
         .dismissesOnEscape($titleMenuOpen)
+        .dismissesOnOutsideClick($titleMenuOpen)
         .dismissesOnEscape($addMenuOpen)
+        .dismissesOnOutsideClick($addMenuOpen)
         .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnOutsideClick($modelMenuOpen)
         .dismissesOnEscape($effortMenuOpen)
+        .dismissesOnOutsideClick($effortMenuOpen)
         .dismissesOnEscape($agentMenuOpen)
+        .dismissesOnOutsideClick($agentMenuOpen)
         .dismissesOnEscape($renameOpen)
         .sheet(isPresented: Binding(
             get: { model.childTranscriptSessionID != nil },
@@ -140,6 +145,11 @@ struct TaskThreadView: View {
     }
 
     /// When the sidebar is closed, the real traffic lights occupy the top-left of this column.
+    /// Extra room between the sidebar and the composer when the progress panel is also open.
+    private var composerSideInset: CGFloat {
+        presentation == .beside && model.inspectorOpen ? 28 : 16
+    }
+
     private var threadHeaderLeading: CGFloat {
         guard model.sidebarCollapsed else { return 22 }
         return WindowChrome.leading * 2 + WindowChrome.trafficLightsWidth + 28 + 16
@@ -160,10 +170,11 @@ struct TaskThreadView: View {
                 .frame(minHeight: 44)
                 .foregroundStyle(colors.text)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
+            .popupChrome()
             .accessibilityID("thread-title")
             TextField("Find in thread", text: $model.threadFindQuery)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .font(.system(size: 14))
                 .frame(maxWidth: 180)
                 .accessibilityID("thread-find")
@@ -178,7 +189,7 @@ struct TaskThreadView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .foregroundStyle(model.inspectorOpen ? colors.toggleOnText : colors.muted)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .accessibilityID("thread-layout", label: "Toggle task details")
         }
         .padding(.leading, threadHeaderLeading)
@@ -248,7 +259,7 @@ struct TaskThreadView: View {
                     Button("Revert") {
                         Task { await model.revertLastTurn() }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .font(.system(size: 14))
                     .foregroundStyle(colors.dim)
                     .padding(.trailing, 24)
@@ -308,7 +319,7 @@ struct TaskThreadView: View {
                             .font(.system(size: 13))
                             .frame(width: 28, height: 28)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(colors.dim)
                     .padding(.top, 12)
                     .padding(.leading, -6)
@@ -347,7 +358,7 @@ struct TaskThreadView: View {
                 get: { questionAnswers[pending.callID, default: ""] },
                 set: { questionAnswers[pending.callID] = $0 }
             ))
-            .textFieldStyle(.plain)
+            .textFieldStyle(.plain).yuzuFieldHover()
             .padding(10)
             .background(colors.surface)
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -355,7 +366,7 @@ struct TaskThreadView: View {
                 let answer = questionAnswers[pending.callID, default: ""]
                 Task { await model.answerPendingQuestion(callID: pending.callID, answer: answer) }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .foregroundStyle(colors.accent)
         }
         .padding(16)
@@ -374,7 +385,7 @@ struct TaskThreadView: View {
         return VStack(spacing: 0) {
             VStack(spacing: 0) {
                 TextField(PhraseBook.line(.threadPrompt, index: threadPrompt), text: $model.threadDraft, axis: .vertical)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .font(YuzuFonts.interface(model.interfaceFont, size: 17))
                     .foregroundStyle(colors.text)
                     .lineLimit(2...7)
@@ -395,13 +406,14 @@ struct TaskThreadView: View {
                     } label: {
                         Image(systemName: "plus").font(.system(size: 19)).frame(width: 28, height: 32)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.softText)
                     .accessibilityID("thread-add", label: "Add to message")
                     Button(action: chooseProject) {
                         Image(systemName: "folder.badge.plus").font(.system(size: 16)).frame(width: 28, height: 32)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(colors.softText)
                     .accessibilityID("thread-project", label: "Add a project")
                     Spacer()
@@ -413,7 +425,8 @@ struct TaskThreadView: View {
                         Text(model.sessionAgentID == "plan" ? "Plan" : "Build")
                             .font(.system(size: 16))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.softText)
                     .accessibilityID("thread-agent-button")
                     Button {
@@ -423,7 +436,8 @@ struct TaskThreadView: View {
                     } label: {
                         Text(model.modelDisplayName).font(.system(size: 16)).lineLimit(1)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.softText)
                     .accessibilityID("thread-model-button")
                     Button {
@@ -434,7 +448,8 @@ struct TaskThreadView: View {
                         Text(model.coworkEffortLabel)
                             .font(.system(size: 16))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.subtle)
                     .accessibilityID("thread-effort")
                     .accessibilityID("thread-effort-button")
@@ -449,7 +464,7 @@ struct TaskThreadView: View {
                                 .foregroundStyle(colors.onAccent)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .padding(.leading, 10)
                         .accessibilityID("stop-turn", label: "Stop")
                     } else {
@@ -461,7 +476,7 @@ struct TaskThreadView: View {
                                 .foregroundStyle(ready ? colors.onAccent : colors.sendIdleText)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .padding(.leading, 10)
                         .accessibilityID(ready ? "thread-send-ready" : "thread-send", label: "Send message")
                     }
@@ -576,7 +591,8 @@ struct TaskThreadView: View {
                 .padding(.top, 8)
                 .accessibilityID("task-disclaimer", label: AppModel.disclaimer)
         }
-        .frame(maxWidth: min(920, width - 48))
+        .frame(maxWidth: 920)
+        .padding(.horizontal, composerSideInset)
         .padding(.bottom, 7)
         .zIndex(1)
     }
@@ -660,7 +676,7 @@ struct TaskThreadView: View {
                         } label: {
                             Image(systemName: "folder").font(.system(size: 15)).frame(width: 32, height: 32)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .foregroundStyle(colors.subtle)
                         .padding(.trailing, 13)
                         .accessibilityID("inspector-open-folder", label: "Open \(folder) project")
@@ -802,7 +818,7 @@ struct TaskThreadView: View {
             .frame(minHeight: 42)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .padding(.horizontal, 15)
         .accessibilityID("inspector-file")
     }
@@ -816,7 +832,7 @@ struct TaskThreadView: View {
                     .font(.system(size: 22, weight: .medium))
                     .foregroundStyle(colors.text)
                 TextField("Task", text: $renameDraft)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .padding(10)
                     .background(colors.canvas)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -825,9 +841,9 @@ struct TaskThreadView: View {
                 HStack {
                     Spacer()
                     Button("Cancel") { renameOpen = false }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                     Button("Save", action: saveRename)
-                        .buttonStyle(.plain)
+                        .buttonStyle(.yuzu)
                         .accessibilityID("thread-rename-save")
                 }
             }
@@ -874,7 +890,7 @@ private struct InspectorSection<Content: View>: View {
                     .frame(minHeight: 45)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 if let trailing { trailing }
             }
             if open {

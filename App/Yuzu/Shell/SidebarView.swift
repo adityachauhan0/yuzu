@@ -56,7 +56,8 @@ struct SidebarView: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
+            .popupChrome()
             .accessibilityID("account-button")
             .accessibilityID("account-popover")
             .padding(.horizontal, 10)
@@ -64,14 +65,18 @@ struct SidebarView: View {
             .overlay(alignment: .bottomLeading) {
                 if accountOpen {
                     accountPopover
-                        .padding(.leading, 10)
+                        .padding(.leading, 4)
                         .padding(.bottom, 52)
+                        .zIndex(2)
                 }
             }
+            .zIndex(accountOpen ? 2 : 0)
         }
         .background(colors.side)
         .dismissesOnEscape($accountOpen)
+        .dismissesOnOutsideClick($accountOpen)
         .dismissesOnEscape($languageOpen)
+        .dismissesOnOutsideClick($languageOpen)
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(colors.line.opacity(0.5))
@@ -123,7 +128,7 @@ struct SidebarView: View {
             }
             .accessibilityIdentifier("account-sign-out")
         }
-        .frame(width: 260)
+        .frame(width: 216)
     }
 
     private var windowBar: some View {
@@ -139,7 +144,7 @@ struct SidebarView: View {
                     .font(.system(size: 14))
                     .frame(width: 28, height: 28)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .foregroundStyle(colors.muted)
             .accessibilityID("sidebar-toggle")
 
@@ -150,7 +155,7 @@ struct SidebarView: View {
                     .font(.system(size: 14))
                     .frame(width: 28, height: 28)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .foregroundStyle(colors.muted)
             .accessibilityID("search-button")
         }
@@ -213,7 +218,7 @@ struct SidebarView: View {
             .foregroundStyle(active ? colors.text : colors.muted)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .help(task.displayTitle)
         .accessibilityID(id, label: task.displayTitle)
     }
@@ -236,7 +241,7 @@ struct SidebarView: View {
                         .font(.system(size: 14))
                         .frame(width: 28, height: 28)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .foregroundStyle(colors.muted)
                 .accessibilityID("task-settings")
             }
@@ -288,7 +293,7 @@ struct SidebarView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .foregroundStyle(selected ? colors.text : colors.muted)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .accessibilityID(id)
     }
 
@@ -337,7 +342,7 @@ struct ModeSwitch: View {
                 .clipShape(RoundedRectangle(cornerRadius: 7))
                 .foregroundStyle(active ? colors.text : colors.muted)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .accessibilityID(id)
         .accessibilityAddTraits(active ? .isSelected : [])
     }

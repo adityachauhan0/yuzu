@@ -28,7 +28,7 @@ struct ThreadToolGroupView: View {
                     }
                     .foregroundStyle(colors.dim)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .accessibilityID("thread-tool-group")
 
                 if expanded {
@@ -61,7 +61,7 @@ struct ThreadToolRowView: View {
             } label: {
                 rowHeader
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .accessibilityID("thread-task-row")
         } else {
             VStack(alignment: .leading, spacing: 4) {
@@ -70,7 +70,7 @@ struct ThreadToolRowView: View {
                 } label: {
                     rowHeader
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .accessibilityID("thread-tool-\(row.presentation.title.lowercased())")
                 if expanded {
                     Text(row.result)
@@ -151,7 +151,7 @@ struct ThreadThoughtRow: View {
                 }
                 .foregroundStyle(colors.dim)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .accessibilityID("thread-thought")
             if streaming || expanded {
                 Text(text)

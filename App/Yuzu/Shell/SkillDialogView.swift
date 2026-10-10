@@ -38,7 +38,7 @@ struct SkillDialogView: View {
                     HStack {
                         Spacer()
                         Button("Close", action: onClose)
-                            .buttonStyle(.plain)
+                            .buttonStyle(.yuzu)
                             .font(.system(size: 15))
                             .foregroundStyle(colors.text)
                             .padding(.horizontal, 14)
@@ -76,7 +76,7 @@ struct SkillDialogView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 5)
             TextField("", text: $createName)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(10)
                 .background(colors.canvas)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -89,7 +89,7 @@ struct SkillDialogView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 5)
             TextField("", text: $createDescription, axis: .vertical)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .lineLimit(3...6)
                 .padding(10)
                 .frame(minHeight: 84, alignment: .topLeading)
@@ -101,7 +101,7 @@ struct SkillDialogView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onClose)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .font(.system(size: 15))
                     .foregroundStyle(colors.text)
                     .padding(.horizontal, 14)
@@ -113,7 +113,7 @@ struct SkillDialogView: View {
                 Button("Add skill") {
                     submitCreate()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(colors.onAccent)
                 .padding(.horizontal, 14)

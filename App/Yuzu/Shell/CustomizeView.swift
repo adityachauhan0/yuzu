@@ -95,7 +95,9 @@ struct CustomizeView: View {
             }
         }
         .dismissesOnEscape($filterMenuOpen)
+        .dismissesOnOutsideClick($filterMenuOpen)
         .dismissesOnEscape($addMenuOpen)
+        .dismissesOnOutsideClick($addMenuOpen)
         .dismissesOnEscape(when: searchVisible) {
             searchVisible = false
             searchQuery = ""
@@ -142,7 +144,7 @@ struct CustomizeView: View {
                         .font(.system(size: 16))
                         .frame(width: 35, height: 37)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .foregroundStyle(colors.muted)
                 .background(searchVisible ? colors.selected : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -156,7 +158,8 @@ struct CustomizeView: View {
                         .font(.system(size: 16))
                         .frame(width: 35, height: 37)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
+                .popupChrome()
                 .foregroundStyle(colors.muted)
                 .background(filterMenuOpen ? colors.selected : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -169,7 +172,7 @@ struct CustomizeView: View {
                         .font(.system(size: 16))
                         .frame(width: 35, height: 37)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .foregroundStyle(colors.muted)
                 .accessibilityID("customize-sort-button")
 
@@ -189,13 +192,14 @@ struct CustomizeView: View {
                     .background(colors.softText)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
+                .popupChrome()
                 .accessibilityID("customize-add-button")
             }
 
             if searchVisible {
                 TextField("Search skills", text: $searchQuery)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .font(.system(size: 15))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
@@ -246,7 +250,7 @@ struct CustomizeView: View {
                 .background(tab == item ? colors.selected : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 9))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .foregroundStyle(tab == item ? colors.text : colors.dim)
         .accessibilityIdentifier("customize-tab-\(item.rawValue)")
     }
@@ -321,18 +325,18 @@ struct CustomizeView: View {
                 }
             }
             TextField("Server name", text: $mcpName)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(8)
                 .background(colors.surface)
                 .foregroundStyle(colors.text)
                 .accessibilityID("mcp-add-name")
             TextField("Command, or leave empty for DuckDuckGo", text: $mcpCommand)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(8)
                 .background(colors.surface)
                 .foregroundStyle(colors.text)
             TextField("Args, separated by spaces", text: $mcpArgs)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.plain).yuzuFieldHover()
                 .padding(8)
                 .background(colors.surface)
                 .foregroundStyle(colors.text)
@@ -344,7 +348,7 @@ struct CustomizeView: View {
                     mcpCommand = ""
                     mcpArgs = ""
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .font(.system(size: 14))
                 .foregroundStyle(colors.text)
                 .padding(.horizontal, 14)
@@ -355,7 +359,7 @@ struct CustomizeView: View {
                 Button("Edit JSON") {
                     model.openSettings(tab: .developer, anchor: .mcpConfig)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .font(.system(size: 14))
                 .foregroundStyle(colors.muted)
             }
@@ -389,24 +393,24 @@ struct CustomizeView: View {
                 Button("Disconnect") {
                     model.disconnectMCPServer(named: name)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .foregroundStyle(colors.muted)
             } else if status == "needs auth" {
                 Button("Sign in") { model.beginMCPSignIn(serverName: name) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(colors.text)
                     .accessibilityID("mcp-sign-in-\(name)")
             } else if status != "disabled" {
                 Button("Connect") {
                     Task { await model.connectMCPServer(named: name) }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.yuzu)
                 .foregroundStyle(colors.text)
             }
             Button("Remove") {
                 model.removeMCPServer(named: name)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .foregroundStyle(colors.dim)
         }
         .padding(.vertical, 8)
@@ -488,7 +492,7 @@ struct CustomizeView: View {
                     .frame(height: 1)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .accessibilityIdentifier("skill-row-\(skill.name)")
     }
 }

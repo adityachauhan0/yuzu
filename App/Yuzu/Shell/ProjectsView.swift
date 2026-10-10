@@ -23,7 +23,7 @@ struct ProjectsView: View {
                     Button("Choose folder") {
                         chooseFolder()
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 9)
                     .background(colors.selected)
@@ -72,7 +72,7 @@ struct ProjectsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .accessibilityID("project-row-\(url.lastPathComponent)")
 
             Button("New task") {
@@ -80,7 +80,7 @@ struct ProjectsView: View {
                 model.beginTask()
                 model.selectCowork(.task)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
             .font(.system(size: 14))
             .foregroundStyle(colors.text)
             .padding(.horizontal, 12)

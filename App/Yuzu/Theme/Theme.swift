@@ -319,6 +319,77 @@ enum YuzuFonts {
     }
 }
 
+/// Hover and press feedback for every plain button. The wash fills the control's
+/// bounds, including padding, not only the glyphs.
+struct YuzuHoverButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        YuzuHoverButtonBody(configuration: configuration)
+    }
+}
+
+private struct YuzuHoverButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var model: AppModel
+    @State private var hovered = false
+
+    var body: some View {
+        let reduced = reduceMotion || model.motionSetting == "Reduced"
+        let wash = configuration.isPressed ? 0.16 : (hovered ? 0.08 : 0)
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(wash))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(wash))
+                    .allowsHitTesting(false)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .animation(MotionTiming.animation(reduceMotion: reduced), value: hovered)
+            .animation(MotionTiming.animation(reduceMotion: reduced), value: configuration.isPressed)
+            .onHover { hovering in
+                hovered = hovering
+                if hovering {
+                    NSCursor.pointingHand.set()
+                } else {
+                    NSCursor.arrow.set()
+                }
+            }
+    }
+}
+
+extension ButtonStyle where Self == YuzuHoverButtonStyle {
+    static var yuzu: YuzuHoverButtonStyle { YuzuHoverButtonStyle() }
+}
+
+extension View {
+    /// Soft border brightening for text fields. The cursor stays the text caret.
+    func yuzuFieldHover(cornerRadius: CGFloat = 8) -> some View {
+        modifier(YuzuFieldHover(cornerRadius: cornerRadius))
+    }
+}
+
+private struct YuzuFieldHover: ViewModifier {
+    var cornerRadius: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var model: AppModel
+    @State private var hovered = false
+
+    func body(content: Content) -> some View {
+        let reduced = reduceMotion || model.motionSetting == "Reduced"
+        content
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.primary.opacity(hovered ? 0.28 : 0), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+            .animation(MotionTiming.animation(reduceMotion: reduced), value: hovered)
+            .onHover { hovered = $0 }
+    }
+}
+
 extension Color {
     init(hex: String) {
         let trimmed = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))

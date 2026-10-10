@@ -20,7 +20,7 @@ struct YuzuSwitch: View {
                         .padding(2)
                 }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .accessibilityID(accessibilityID ?? "yuzu-switch", label: isOn ? "On" : "Off")
         .accessibilityAddTraits(.isButton)
     }

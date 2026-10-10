@@ -79,6 +79,7 @@ final class AppModel: ObservableObject {
     @Published var searchOpen = false
     @Published var requestedSkill: String?
     let escapeStack = EscapeStack()
+    let outsideClicks = OutsideClickStack()
     @Published var coworkSeed: String?
     @Published var installedModelName: String?
     private(set) var installedModelIdentifier: String?

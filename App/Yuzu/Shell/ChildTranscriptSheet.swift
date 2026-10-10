@@ -19,7 +19,7 @@ struct ChildTranscriptSheet: View {
                     .foregroundStyle(colors.text)
                 Spacer()
                 Button("Close") { dismiss() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
             }
             .padding(16)
             ScrollView {

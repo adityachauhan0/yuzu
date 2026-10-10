@@ -33,9 +33,13 @@ struct CoworkHomeView: View {
             model.coworkSeed = nil
         }
         .dismissesOnEscape($addMenuOpen)
+        .dismissesOnOutsideClick($addMenuOpen)
         .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnOutsideClick($modelMenuOpen)
         .dismissesOnEscape($effortMenuOpen)
+        .dismissesOnOutsideClick($effortMenuOpen)
         .dismissesOnEscape($projectMenuOpen)
+        .dismissesOnOutsideClick($projectMenuOpen)
     }
 
     private var welcomeHeading: some View {
@@ -68,7 +72,7 @@ struct CoworkHomeView: View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
                 TextField(PhraseBook.line(.coworkPrompt, index: coworkPrompt), text: $prompt, axis: .vertical)
-                    .textFieldStyle(.plain)
+                    .textFieldStyle(.plain).yuzuFieldHover()
                     .lineLimit(2...4)
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
@@ -93,7 +97,8 @@ struct CoworkHomeView: View {
                             .font(.system(size: 22))
                             .frame(width: 40, height: 40)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.muted)
                     .accessibilityID("add-button", label: "Add to task")
 
@@ -111,7 +116,8 @@ struct CoworkHomeView: View {
                             .truncationMode(.tail)
                             .frame(maxWidth: 220, alignment: .trailing)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.text)
                     .accessibilityID("model-button")
 
@@ -124,7 +130,8 @@ struct CoworkHomeView: View {
                         Text(model.coworkEffortLabel)
                             .font(.system(size: 15))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
+                    .popupChrome()
                     .foregroundStyle(colors.text)
                     .accessibilityID("effort-label")
 
@@ -133,7 +140,7 @@ struct CoworkHomeView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .frame(width: 40, height: 40)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.yuzu)
                     .foregroundStyle(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? colors.dim : colors.accent)
                     .accessibilityID("send-button", label: "Send task")
                 }
@@ -168,7 +175,8 @@ struct CoworkHomeView: View {
                 .padding(.horizontal, 26)
                 .frame(height: 49)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.yuzu)
+            .popupChrome()
             .foregroundStyle(colors.muted)
             .accessibilityID("project-button")
 
@@ -304,7 +312,7 @@ struct CoworkHomeView: View {
                 .background(colors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.yuzu)
         .foregroundStyle(colors.muted)
     }
 
