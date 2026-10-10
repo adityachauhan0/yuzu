@@ -187,6 +187,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             let materialized = ToolRegistry.materialize(
                 agent: agent,
                 projectPath: session.projectPath,
+                sessionID: sessionID,
                 savedAllows: savedAllows,
                 manualPressed: session.manualPressed,
                 onlyNames: materializeOnly
@@ -391,6 +392,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         let materialized = ToolRegistry.materialize(
             agent: agent,
             projectPath: session.projectPath,
+            sessionID: sessionID,
             savedAllows: savedAllows,
             manualPressed: session.manualPressed,
             onlyNames: materializeOnly

@@ -173,6 +173,7 @@ struct PermissionTests {
                 modelMessageCursor: 0
             )
         )
+        try "a".write(to: project.appendingPathComponent("a.swift"), atomically: true, encoding: .utf8)
         let editCall = ToolCall(
             id: "c1",
             name: "edit",
@@ -226,6 +227,8 @@ struct PermissionTests {
             )
         )
         let path = "src/a.swift"
+        try FileManager.default.createDirectory(at: project.appendingPathComponent("src"), withIntermediateDirectories: true)
+        try "a".write(to: project.appendingPathComponent(path), atomically: true, encoding: .utf8)
         let editCall1 = ToolCall(
             id: "c1",
             name: "edit",
@@ -272,6 +275,7 @@ struct PermissionTests {
             $0.role == .tool && $0.text.contains("Edited \(path)")
         }
         #expect(edited.count == 2)
+        #expect(try String(contentsOf: project.appendingPathComponent(path), encoding: .utf8) == "c")
     }
 
     @Test func P8_rejectContinues() async throws {
@@ -422,6 +426,7 @@ struct PermissionTests {
                 manualPressed: false
             )
         )
+        try "a".write(to: project.appendingPathComponent("a.swift"), atomically: true, encoding: .utf8)
         let editCall = ToolCall(
             id: "c1",
             name: "edit",

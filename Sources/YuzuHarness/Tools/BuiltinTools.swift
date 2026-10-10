@@ -31,6 +31,25 @@ enum BuiltinTools {
         ])
     )
 
+    static let write = ToolDefinition(
+        name: "write",
+        description: "Create or replace a project file with the given body.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "path": .object([
+                    "type": .string("string"),
+                    "description": .string("Relative path from the project root"),
+                ]),
+                "body": .object([
+                    "type": .string("string"),
+                    "description": .string("Full file contents"),
+                ]),
+            ]),
+            "required": .array([.string("path"), .string("body")]),
+        ])
+    )
+
     static let edit = ToolDefinition(
         name: "edit",
         description: "Replace one exact string in a project file.",
@@ -64,6 +83,10 @@ enum BuiltinTools {
                     "type": .string("string"),
                     "description": .string("Shell command"),
                 ]),
+                "timeout": .object([
+                    "type": .string("number"),
+                    "description": .string("Timeout in seconds"),
+                ]),
             ]),
             "required": .array([.string("command")]),
         ])
@@ -96,12 +119,87 @@ enum BuiltinTools {
             return executeGlob(arguments: arguments, projectPath: projectPath)
         case "grep":
             return executeGrep(arguments: arguments, projectPath: projectPath)
+        case "write":
+            return executeWrite(arguments: arguments, projectPath: projectPath)
         case "edit":
-            return "Edited \(stringArg(arguments, key: "path") ?? "file")"
+            return executeEdit(arguments: arguments, projectPath: projectPath)
         case "bash":
-            return "Ran: \(stringArg(arguments, key: "command") ?? "")"
+            return executeBash(arguments: arguments, projectPath: projectPath)
         default:
             return "Unknown tool"
+        }
+    }
+
+    private static func executeWrite(arguments: JSONValue, projectPath: String) -> String {
+        guard let path = stringArg(arguments, key: "path") else {
+            return "Error: missing path"
+        }
+        guard let body = stringArg(arguments, key: "body") else {
+            return "Error: missing body"
+        }
+        do {
+            let url = try ProjectPaths.resolve(path: path, in: projectPath)
+            let parent = url.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            try body.write(to: url, atomically: true, encoding: .utf8)
+            return "Wrote \(path)"
+        } catch {
+            return "Error: \(error.localizedDescription)"
+        }
+    }
+
+    private static func executeEdit(arguments: JSONValue, projectPath: String) -> String {
+        guard let path = stringArg(arguments, key: "path") else {
+            return "Error: missing path"
+        }
+        guard let oldString = stringArg(arguments, key: "old_string") else {
+            return "Error: missing old_string"
+        }
+        guard let newString = stringArg(arguments, key: "new_string") else {
+            return "Error: missing new_string"
+        }
+        do {
+            let url = try ProjectPaths.resolve(path: path, in: projectPath)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                return "Error: file not found"
+            }
+            let data = try Data(contentsOf: url)
+            guard let content = String(data: data, encoding: .utf8) else {
+                return "Error: file is not valid UTF-8 text"
+            }
+            let matchCount = content.components(separatedBy: oldString).count - 1
+            if matchCount == 0 {
+                return "Error: old_string not found in file"
+            }
+            if matchCount > 1 {
+                return "Error: old_string appears \(matchCount) times; expected exactly one match"
+            }
+            let updated = content.replacingOccurrences(of: oldString, with: newString)
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+            return "Edited \(path): replaced `\(oldString)` with `\(newString)`"
+        } catch {
+            return "Error: \(error.localizedDescription)"
+        }
+    }
+
+    private static func executeBash(arguments: JSONValue, projectPath: String) -> String {
+        guard let command = stringArg(arguments, key: "command") else {
+            return "Error: missing command"
+        }
+        let timeout = numberArg(arguments, key: "timeout")
+        let root = ProjectPaths.projectRootURL(path: projectPath).path
+        return BashRunner.run(command: command, workingDirectory: root, timeoutSeconds: timeout)
+    }
+
+    private static func numberArg(_ arguments: JSONValue, key: String) -> Double? {
+        guard case .object(let object) = arguments else { return nil }
+        switch object[key] {
+        case .number(let value):
+            return value
+        case .string(let text):
+            return Double(text)
+        default:
+            return nil
         }
     }
 

@@ -4,13 +4,19 @@ public struct MaterializedTools: Sendable {
     public var definitions: [ToolDefinition]
     public var allowedNames: Set<String>
     public let projectPath: String
+    public let sessionID: String
     public let agentID: String
     public let savedAllows: [PermissionRule]
     public let manualPressed: Bool
 
     private static let registeredBuiltinNames: Set<String> = [
-        "read", "glob", "grep", "edit", "bash",
+        "read", "glob", "grep", "write", "edit", "bash",
     ]
+
+    private func deliver(call: ToolCall) -> String {
+        let raw = BuiltinTools.execute(name: call.name, arguments: call.arguments, projectPath: projectPath)
+        return ToolOutput.project(raw: raw, sessionID: sessionID, callID: call.id)
+    }
 
     public func settle(call: ToolCall) -> String {
         if let action = PermissionGate.permissionAction(for: call.name) {
@@ -38,11 +44,11 @@ public struct MaterializedTools: Sendable {
             }
             return "Unknown tool"
         }
-        return BuiltinTools.execute(name: call.name, arguments: call.arguments, projectPath: projectPath)
+        return deliver(call: call)
     }
 
     public func executeAfterApproval(call: ToolCall) -> String {
-        BuiltinTools.execute(name: call.name, arguments: call.arguments, projectPath: projectPath)
+        deliver(call: call)
     }
 }
 
@@ -51,6 +57,7 @@ public enum ToolRegistry {
         (BuiltinTools.read, "read"),
         (BuiltinTools.glob, "glob"),
         (BuiltinTools.grep, "grep"),
+        (BuiltinTools.write, "edit"),
         (BuiltinTools.edit, "edit"),
         (BuiltinTools.bash, "bash"),
     ]
@@ -58,6 +65,7 @@ public enum ToolRegistry {
     public static func materialize(
         agent: Agent,
         projectPath: String,
+        sessionID: String,
         savedAllows: [PermissionRule],
         manualPressed: Bool,
         onlyNames: Set<String>? = nil
@@ -78,6 +86,7 @@ public enum ToolRegistry {
             definitions: definitions,
             allowedNames: allowed,
             projectPath: projectPath,
+            sessionID: sessionID,
             agentID: agent.id,
             savedAllows: savedAllows,
             manualPressed: manualPressed
