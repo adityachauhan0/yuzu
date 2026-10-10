@@ -8,6 +8,8 @@ public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
 
     public private(set) var requests: [TurnRequest] = []
     public private(set) var resetEpochs: [String] = []
+    /// Number of `complete` calls recorded when each `reset` ran (tests).
+    public private(set) var resetWhenRequestCount: [Int] = []
 
     public var holdBeforeComplete = false
     public var holdAfterFinished = false
@@ -59,6 +61,7 @@ public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
     public func reset(epochID: String) {
         lock.lock()
         resetEpochs.append(epochID)
+        resetWhenRequestCount.append(requests.count)
         lock.unlock()
     }
 

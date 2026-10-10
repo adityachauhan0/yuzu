@@ -100,6 +100,11 @@ struct CompactionTests {
         let summaryRequests = script.requests.filter(Compaction.isSummaryTurnRequest)
         #expect(summaryRequests.count == 1)
         #expect(summaryRequests[0].tools.isEmpty)
+        #expect(
+            summaryRequests[0].delta.contains { message in
+                message.role == .user && message.text.contains(Compaction.summaryInstruction)
+            }
+        )
     }
 
     @Test func K2_recentTailSurvives() async throws {
@@ -137,18 +142,11 @@ struct CompactionTests {
 
         let session = try #require(try store.session(id: sessionID))
         #expect(script.resetEpochs.contains(session.epochID))
-        let summaryIndex = script.requests.firstIndex(where: Compaction.isSummaryTurnRequest)
-        let resetIndex = script.resetEpochs.firstIndex(of: session.epochID)
-        let firstNormalIndex = script.requests.indices.first { index in
-            !Compaction.isSummaryTurnRequest(script.requests[index])
-        }
-        #expect(summaryIndex != nil)
-        #expect(resetIndex != nil)
-        #expect(firstNormalIndex != nil)
-        if let summaryIndex, let resetIndex, let firstNormalIndex {
-            #expect(resetIndex <= firstNormalIndex)
-            #expect(summaryIndex < firstNormalIndex)
-        }
+        #expect(script.resetWhenRequestCount == [1])
+        let summaryIndex = try #require(script.requests.firstIndex(where: Compaction.isSummaryTurnRequest))
+        #expect(summaryIndex == 0)
+        #expect(script.requests.count >= 2)
+        #expect(!Compaction.isSummaryTurnRequest(script.requests[1]))
     }
 
     @Test func K4_summaryMustCarryFacts() async throws {
