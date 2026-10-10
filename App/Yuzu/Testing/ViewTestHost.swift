@@ -45,6 +45,16 @@ enum ViewTestHost {
         return found
     }
 
+    static func accessibilityLabel(forIdentifier identifier: String, in view: NSView) -> String? {
+        var label: String?
+        walk(view) { element in
+            if element.accessibilityIdentifier() == identifier {
+                label = element.accessibilityLabel()
+            }
+        }
+        return label
+    }
+
     private static func walk(_ view: NSView, visit: (NSView) -> Void) {
         visit(view)
         for child in view.subviews {

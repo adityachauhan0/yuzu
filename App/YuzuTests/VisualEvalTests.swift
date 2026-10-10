@@ -46,12 +46,19 @@ final class VisualEvalTests: XCTestCase {
         }
     }
 
+    private let disclaimerCopy =
+        "Yuzu is on-device AI. its not the best. Please double check responses."
+
     func testV2_disclaimerExact() throws {
         let model = try makeModel()
         model.applyTestRoute(.coworkTask)
         let host = ViewTestHost.host(rootView(model: model))
-        let strings = ViewTestHost.collectAccessibilityStrings(from: host)
-        XCTAssertTrue(strings.contains(AppModel.disclaimer))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("task-view", in: host))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("task-disclaimer", in: host))
+        XCTAssertEqual(
+            ViewTestHost.accessibilityLabel(forIdentifier: "task-disclaimer", in: host),
+            disclaimerCopy
+        )
     }
 
     func testV3_codeTabShowsAppearance() throws {
@@ -67,23 +74,27 @@ final class VisualEvalTests: XCTestCase {
         let model = try makeModel()
         model.applyTestRoute(.coworkArtifacts)
         var host = ViewTestHost.host(rootView(model: model))
-        var blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
-        XCTAssertTrue(blob.contains("No artifacts yet"))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("panel-No artifacts yet", in: host))
 
         model.applyTestRoute(.coworkProjects)
         host = ViewTestHost.host(rootView(model: model))
-        blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
-        XCTAssertTrue(blob.contains("No project yet"))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("panel-No project yet", in: host))
 
         model.applyTestRoute(.coworkCustomize)
         host = ViewTestHost.host(rootView(model: model))
-        blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
-        XCTAssertTrue(blob.contains("Skills teach Yuzu how you work."))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("skills-banner", in: host))
+        XCTAssertEqual(
+            ViewTestHost.accessibilityLabel(forIdentifier: "skills-banner", in: host),
+            "Skills teach Yuzu how you work."
+        )
 
         model.applyTestRoute(.code)
         host = ViewTestHost.host(rootView(model: model))
-        blob = ViewTestHost.collectAccessibilityStrings(from: host).joined(separator: "\n")
-        XCTAssertTrue(blob.contains("—") || blob.contains("speed"))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("code-speed", in: host))
+        XCTAssertEqual(
+            ViewTestHost.accessibilityLabel(forIdentifier: "code-speed", in: host),
+            "speed —"
+        )
     }
 
     func testV5_darkAndLightTokens() throws {
@@ -112,31 +123,33 @@ final class VisualEvalTests: XCTestCase {
         let model = try makeModel()
         model.applyTestRoute(.coworkTask)
         model.inspectorOpen = true
-        XCTAssertEqual(model.inspectorPresentation(width: 1100), .overlay)
-        XCTAssertEqual(model.inspectorPresentation(width: 1400), .beside)
 
         model.contentWidth = 1100
         let host = ViewTestHost.host(rootView(model: model), size: CGSize(width: 1100, height: 900))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("task-view", in: host))
         XCTAssertTrue(ViewTestHost.containsIdentifier("inspector-layout-overlay", in: host))
+        XCTAssertFalse(ViewTestHost.containsIdentifier("inspector-layout-beside", in: host))
 
         model.contentWidth = 1400
         let wide = ViewTestHost.host(rootView(model: model), size: CGSize(width: 1400, height: 900))
         XCTAssertTrue(ViewTestHost.containsIdentifier("inspector-layout-beside", in: wide))
+        XCTAssertFalse(ViewTestHost.containsIdentifier("inspector-layout-overlay", in: wide))
     }
 
     func testV8_manualAndLocal() async throws {
         let model = try makeModel()
         model.applyTestRoute(.code)
+        var host = ViewTestHost.host(rootView(model: model))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("code-local", in: host))
+        XCTAssertTrue(ViewTestHost.containsIdentifier("code-manual", in: host))
         XCTAssertTrue(model.manualPressed)
         XCTAssertEqual(model.permissionEffect(manualPressed: true), .ask)
-        XCTAssertEqual(model.permissionEffect(manualPressed: false), .allow)
 
         await model.toggleManual()
         XCTAssertFalse(model.manualPressed)
         XCTAssertEqual(model.permissionEffect(manualPressed: false), .allow)
 
-        let host = ViewTestHost.host(rootView(model: model))
-        XCTAssertTrue(ViewTestHost.containsIdentifier("code-local", in: host))
+        host = ViewTestHost.host(rootView(model: model))
         XCTAssertTrue(ViewTestHost.containsIdentifier("code-manual", in: host))
     }
 
