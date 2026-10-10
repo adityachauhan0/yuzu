@@ -343,6 +343,7 @@ struct MCPTests {
         )
 
         #expect(MCPHub.shared.status(serverName: "oauth") == .needsAuth)
+        #expect(MCPHub.shared.registeredTools().isEmpty)
         let materialized = ToolRegistry.materialize(
             agent: .build,
             projectPath: project.path,
