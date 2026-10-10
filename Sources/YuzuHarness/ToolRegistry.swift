@@ -4,61 +4,83 @@ public struct MaterializedTools: Sendable {
     public var definitions: [ToolDefinition]
     public var allowedNames: Set<String>
     public let projectPath: String
+    public let agentID: String
+    public let savedAllows: [PermissionRule]
+    public let manualPressed: Bool
 
-    private static let registeredBuiltinNames: Set<String> = ["read", "glob", "grep"]
+    private static let registeredBuiltinNames: Set<String> = [
+        "read", "glob", "grep", "edit", "bash",
+    ]
 
     public func settle(call: ToolCall) -> String {
+        if let action = PermissionGate.permissionAction(for: call.name) {
+            let resources = PermissionGate.resources(toolName: call.name, arguments: call.arguments)
+            let effects = resources.map { resource in
+                PermissionEvaluator.effect(
+                    agentID: agentID,
+                    action: action,
+                    resource: resource,
+                    savedAllows: savedAllows,
+                    manualPressed: manualPressed
+                )
+            }
+            if effects.contains(.deny) {
+                return PermissionGate.denialMessage
+            }
+            if effects.contains(.ask) {
+                return "Permission required"
+            }
+        }
+
         guard allowedNames.contains(call.name) else {
             if Self.registeredBuiltinNames.contains(call.name) {
                 return "Stale tool call"
             }
             return "Unknown tool"
         }
-        let agent = Agent.build
-        let resource = call.name == "bash" ? (stringField(call.arguments, key: "command") ?? "*") : "*"
-        switch agent.effect(action: call.name, resource: resource) {
-        case .deny:
-            return "Permission denied"
-        case .ask:
-            return "Permission required"
-        case .allow:
-            return BuiltinTools.execute(name: call.name, arguments: call.arguments, projectPath: projectPath)
-        }
+        return BuiltinTools.execute(name: call.name, arguments: call.arguments, projectPath: projectPath)
+    }
+
+    public func executeAfterApproval(call: ToolCall) -> String {
+        BuiltinTools.execute(name: call.name, arguments: call.arguments, projectPath: projectPath)
     }
 }
 
 public enum ToolRegistry {
-    private static let builtins: [ToolDefinition] = [
-        BuiltinTools.read,
-        BuiltinTools.glob,
-        BuiltinTools.grep,
+    private static let gatedBuiltins: [(ToolDefinition, String)] = [
+        (BuiltinTools.read, "read"),
+        (BuiltinTools.glob, "glob"),
+        (BuiltinTools.grep, "grep"),
+        (BuiltinTools.edit, "edit"),
+        (BuiltinTools.bash, "bash"),
     ]
 
     public static func materialize(
         agent: Agent,
         projectPath: String,
+        savedAllows: [PermissionRule],
+        manualPressed: Bool,
         onlyNames: Set<String>? = nil
     ) -> MaterializedTools {
         var definitions: [ToolDefinition] = []
         var allowed = Set<String>()
-        for tool in builtins {
+        for (tool, action) in gatedBuiltins {
             if onlyNames != nil, !(onlyNames?.contains(tool.name) ?? false) {
                 continue
             }
-            let action = tool.name
-            if agent.effect(action: action, resource: "*") == .allow {
-                definitions.append(tool)
-                allowed.insert(tool.name)
+            if PermissionGate.isWhollyDenied(agentID: agent.id, action: action) {
+                continue
             }
+            definitions.append(tool)
+            allowed.insert(tool.name)
         }
-        return MaterializedTools(definitions: definitions, allowedNames: allowed, projectPath: projectPath)
+        return MaterializedTools(
+            definitions: definitions,
+            allowedNames: allowed,
+            projectPath: projectPath,
+            agentID: agent.id,
+            savedAllows: savedAllows,
+            manualPressed: manualPressed
+        )
     }
-}
-
-private func stringField(_ value: JSONValue, key: String) -> String? {
-    guard case .object(let object) = value,
-          case .string(let string)? = object[key] else {
-        return nil
-    }
-    return string
 }

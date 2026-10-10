@@ -36,15 +36,6 @@ public struct Agent: Sendable, Equatable {
     )
 
     public func effect(action: String, resource: String) -> PermissionEffect {
-        for rule in rules.reversed() {
-            if wildcardMatch(rule.action, action), wildcardMatch(rule.resource, resource) {
-                return rule.effect
-            }
-        }
-        return .ask
-    }
-
-    private func wildcardMatch(_ pattern: String, _ value: String) -> Bool {
-        pattern == "*" || pattern == value
+        PermissionEvaluator.evaluateRules(rules, action: action, resource: resource)
     }
 }

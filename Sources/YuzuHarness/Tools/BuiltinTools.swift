@@ -31,6 +31,44 @@ enum BuiltinTools {
         ])
     )
 
+    static let edit = ToolDefinition(
+        name: "edit",
+        description: "Replace one exact string in a project file.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "path": .object([
+                    "type": .string("string"),
+                    "description": .string("Relative path from the project root"),
+                ]),
+                "old_string": .object([
+                    "type": .string("string"),
+                    "description": .string("Text to replace"),
+                ]),
+                "new_string": .object([
+                    "type": .string("string"),
+                    "description": .string("Replacement text"),
+                ]),
+            ]),
+            "required": .array([.string("path"), .string("old_string"), .string("new_string")]),
+        ])
+    )
+
+    static let bash = ToolDefinition(
+        name: "bash",
+        description: "Run one shell command in the project directory.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "command": .object([
+                    "type": .string("string"),
+                    "description": .string("Shell command"),
+                ]),
+            ]),
+            "required": .array([.string("command")]),
+        ])
+    )
+
     static let grep = ToolDefinition(
         name: "grep",
         description: "Search file contents inside the project.",
@@ -58,6 +96,10 @@ enum BuiltinTools {
             return executeGlob(arguments: arguments, projectPath: projectPath)
         case "grep":
             return executeGrep(arguments: arguments, projectPath: projectPath)
+        case "edit":
+            return "Edited \(stringArg(arguments, key: "path") ?? "file")"
+        case "bash":
+            return "Ran: \(stringArg(arguments, key: "command") ?? "")"
         default:
             return "Unknown tool"
         }

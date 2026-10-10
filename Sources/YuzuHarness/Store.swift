@@ -18,6 +18,7 @@ public struct SessionRecord: Sendable, Equatable {
     public var supportsMultipleToolCalls: Bool
     public var status: SessionStatus
     public var modelMessageCursor: Int
+    public var manualPressed: Bool = true
 }
 
 public final class HarnessStore: Sendable {
@@ -62,6 +63,34 @@ public final class HarnessStore: Sendable {
             }
             try db.create(index: "messages_session_ordinal", on: "messages", columns: ["session_id", "ordinal"])
         }
+        migrator.registerMigration("slice3") { db in
+            try db.alter(table: "sessions") { t in
+                t.add(column: "manual_pressed", .integer).notNull().defaults(to: 1)
+            }
+            try db.create(table: "permission_rules") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("project_path", .text).notNull()
+                t.column("action", .text).notNull()
+                t.column("resource", .text).notNull()
+                t.column("effect", .text).notNull()
+            }
+            try db.create(table: "permission_requests") { t in
+                t.column("id", .text).primaryKey()
+                t.column("session_id", .text).notNull().references("sessions", onDelete: .cascade)
+                t.column("agent_id", .text).notNull()
+                t.column("action", .text).notNull()
+                t.column("resources_json", .text).notNull()
+                t.column("tool_call_id", .text).notNull()
+                t.column("tool_name", .text).notNull()
+            }
+            try db.create(table: "harness_events") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("session_id", .text).notNull().references("sessions", onDelete: .cascade)
+                t.column("name", .text).notNull()
+                t.column("permission_request_id", .text)
+                t.column("created_at", .double).notNull()
+            }
+        }
         return migrator
     }
 
@@ -71,8 +100,9 @@ public final class HarnessStore: Sendable {
                 sql: """
                 INSERT INTO sessions (
                     id, project_path, agent_id, model_identifier, epoch_id,
-                    step_count, supports_multiple_tool_calls, status, model_message_cursor
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    step_count, supports_multiple_tool_calls, status, model_message_cursor,
+                    manual_pressed
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     session.id,
@@ -84,6 +114,7 @@ public final class HarnessStore: Sendable {
                     session.supportsMultipleToolCalls ? 1 : 0,
                     session.status.rawValue,
                     session.modelMessageCursor,
+                    session.manualPressed ? 1 : 0,
                 ]
             )
         }
@@ -101,7 +132,8 @@ public final class HarnessStore: Sendable {
                 sql: """
                 UPDATE sessions SET
                     project_path = ?, agent_id = ?, model_identifier = ?, epoch_id = ?,
-                    step_count = ?, supports_multiple_tool_calls = ?, status = ?, model_message_cursor = ?
+                    step_count = ?, supports_multiple_tool_calls = ?, status = ?, model_message_cursor = ?,
+                    manual_pressed = ?
                 WHERE id = ?
                 """,
                 arguments: [
@@ -113,6 +145,7 @@ public final class HarnessStore: Sendable {
                     session.supportsMultipleToolCalls ? 1 : 0,
                     session.status.rawValue,
                     session.modelMessageCursor,
+                    session.manualPressed ? 1 : 0,
                     session.id,
                 ]
             )
@@ -306,6 +339,130 @@ public final class HarnessStore: Sendable {
             )
         )
     }
+
+    public func permissionRules(projectPath: String) throws -> [PermissionRule] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT action, resource, effect FROM permission_rules
+                WHERE project_path = ? ORDER BY id ASC
+                """,
+                arguments: [projectPath]
+            )
+            return rows.map { row in
+                PermissionRule(
+                    action: row["action"],
+                    resource: row["resource"],
+                    effect: PermissionEffect(rawValue: row["effect"]) ?? .allow
+                )
+            }
+        }
+    }
+
+    public func insertPermissionRule(projectPath: String, rule: PermissionRule) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO permission_rules (project_path, action, resource, effect)
+                VALUES (?, ?, ?, ?)
+                """,
+                arguments: [projectPath, rule.action, rule.resource, rule.effect.rawValue]
+            )
+        }
+    }
+
+    public func insertPermissionRequest(_ request: PermissionRequestRecord) throws {
+        let resourcesData = try JSONEncoder().encode(request.resources)
+        let resourcesJSON = String(decoding: resourcesData, as: UTF8.self)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO permission_requests (
+                    id, session_id, agent_id, action, resources_json, tool_call_id, tool_name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    request.id,
+                    request.sessionID,
+                    request.agentID,
+                    request.action,
+                    resourcesJSON,
+                    request.toolCallID,
+                    request.toolName,
+                ]
+            )
+        }
+    }
+
+    public func deletePermissionRequest(id: String) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM permission_requests WHERE id = ?", arguments: [id])
+        }
+    }
+
+    public func pendingPermissionRequests(sessionID: String) throws -> [PermissionRequestRecord] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT id, session_id, agent_id, action, resources_json, tool_call_id, tool_name
+                FROM permission_requests WHERE session_id = ?
+                """,
+                arguments: [sessionID]
+            )
+            return rows.map { row in
+                let resourcesJSON: String = row["resources_json"]
+                let resources = (try? JSONDecoder().decode([String].self, from: Data(resourcesJSON.utf8))) ?? []
+                return PermissionRequestRecord(
+                    id: row["id"],
+                    sessionID: row["session_id"],
+                    agentID: row["agent_id"],
+                    action: row["action"],
+                    resources: resources,
+                    toolCallID: row["tool_call_id"],
+                    toolName: row["tool_name"]
+                )
+            }
+        }
+    }
+
+    public func appendHarnessEvent(_ event: HarnessEventRecord) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO harness_events (session_id, name, permission_request_id, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                arguments: [
+                    event.sessionID,
+                    event.name,
+                    event.permissionRequestID,
+                    Date().timeIntervalSince1970,
+                ]
+            )
+        }
+    }
+
+    public func harnessEvents(sessionID: String) throws -> [HarnessEventRecord] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT session_id, name, permission_request_id
+                FROM harness_events WHERE session_id = ? ORDER BY id ASC
+                """,
+                arguments: [sessionID]
+            )
+            return rows.map { row in
+                HarnessEventRecord(
+                    sessionID: row["session_id"],
+                    name: row["name"],
+                    permissionRequestID: row["permission_request_id"]
+                )
+            }
+        }
+    }
 }
 
 extension SessionRecord: FetchableRecord {
@@ -319,6 +476,11 @@ extension SessionRecord: FetchableRecord {
         supportsMultipleToolCalls = (row["supports_multiple_tool_calls"] as Int) != 0
         status = SessionStatus(rawValue: row["status"]) ?? .idle
         modelMessageCursor = row["model_message_cursor"]
+        if let manual: Int = row["manual_pressed"] {
+            manualPressed = manual != 0
+        } else {
+            manualPressed = true
+        }
     }
 }
 

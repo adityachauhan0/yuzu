@@ -8,6 +8,7 @@ public enum Delivery: String, Sendable, Codable {
 public enum SessionStatus: String, Sendable, Equatable, Codable {
     case idle
     case running
+    case waitingPermission = "waiting_permission"
 }
 
 public enum PermissionEffect: String, Sendable, Equatable, Codable {

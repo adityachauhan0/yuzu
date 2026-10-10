@@ -8,6 +8,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         var queuePromotionWaiters: [CheckedContinuation<Void, Never>] = []
         var toolSettleWaiters: [CheckedContinuation<Void, Never>] = []
         var providerTurnWaiters: [CheckedContinuation<Void, Never>] = []
+        var permissionWaiters: [String: CheckedContinuation<PermissionReply, Never>] = [:]
     }
 
     public let sessionID: String
@@ -103,7 +104,19 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         stateLock.withLock { $0.cancelRequested = false }
     }
 
-    public func replyPermission(_: String, _: PermissionReply) async {}
+    public func replyPermission(_ id: String, _ reply: PermissionReply) async {
+        let waiter = stateLock.withLock { state -> CheckedContinuation<PermissionReply, Never>? in
+            state.permissionWaiters.removeValue(forKey: id)
+        }
+        waiter?.resume(returning: reply)
+    }
+
+    public func setManualPressed(_ pressed: Bool) async {
+        if var session = try? store.session(id: sessionID) {
+            session.manualPressed = pressed
+            try? store.updateSession(session)
+        }
+    }
 
     public func setAgent(_ id: String) async {
         if var session = try? store.session(id: sessionID) {
@@ -153,9 +166,12 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             session = (try? store.session(id: sessionID)) ?? session
 
             let agent = agentFor(session)
+            let savedAllows = (try? store.permissionRules(projectPath: session.projectPath)) ?? []
             let materialized = ToolRegistry.materialize(
                 agent: agent,
                 projectPath: session.projectPath,
+                savedAllows: savedAllows,
+                manualPressed: session.manualPressed,
                 onlyNames: materializeOnly
             )
             materializeOnly = nil
@@ -198,7 +214,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 }
                 for call in assistant.toolCalls {
                     if isCancelRequested() { break }
-                    let result = materialized.settle(call: call)
+                    let result = await settleCall(call: call, materialized: materialized, session: session)
                     try? store.appendMessage(
                         sessionID: sessionID,
                         message: .toolResult(id: call.id, name: call.name, text: result)
@@ -328,19 +344,129 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
     private func settle(call: ToolCall, session: SessionRecord) async {
         let agent = agentFor(session)
+        let savedAllows = (try? store.permissionRules(projectPath: session.projectPath)) ?? []
         let materialized = ToolRegistry.materialize(
             agent: agent,
             projectPath: session.projectPath,
+            savedAllows: savedAllows,
+            manualPressed: session.manualPressed,
             onlyNames: materializeOnly
         )
         materializeOnly = nil
-        let result = materialized.settle(call: call)
+        let result = await settleCall(call: call, materialized: materialized, session: session)
         try? store.appendMessage(
             sessionID: sessionID,
             message: .toolResult(id: call.id, name: call.name, text: result)
         )
         if var updated = try? store.session(id: sessionID) {
             _ = await promoteSteerAtBoundary(session: &updated)
+        }
+    }
+
+    private func settleCall(
+        call: ToolCall,
+        materialized: MaterializedTools,
+        session: SessionRecord
+    ) async -> String {
+        guard let action = PermissionGate.permissionAction(for: call.name) else {
+            return materialized.settle(call: call)
+        }
+
+        let resources = PermissionGate.resources(toolName: call.name, arguments: call.arguments)
+        let savedAllows = (try? store.permissionRules(projectPath: session.projectPath)) ?? []
+        let effects = resources.map { resource in
+            PermissionEvaluator.effect(
+                agentID: session.agentID,
+                action: action,
+                resource: resource,
+                savedAllows: savedAllows,
+                manualPressed: session.manualPressed
+            )
+        }
+
+        if effects.contains(.deny) {
+            return PermissionGate.denialMessage
+        }
+        if effects.contains(.ask) {
+            return await requestPermission(
+                action: action,
+                resources: resources,
+                call: call,
+                materialized: materialized,
+                session: session
+            )
+        }
+
+        if materialized.allowedNames.contains(call.name) {
+            return materialized.executeAfterApproval(call: call)
+        }
+        return materialized.settle(call: call)
+    }
+
+    private func requestPermission(
+        action: String,
+        resources: [String],
+        call: ToolCall,
+        materialized: MaterializedTools,
+        session: SessionRecord
+    ) async -> String {
+        let requestID = UUID().uuidString
+        let request = PermissionRequestRecord(
+            id: requestID,
+            sessionID: sessionID,
+            agentID: session.agentID,
+            action: action,
+            resources: resources,
+            toolCallID: call.id,
+            toolName: call.name
+        )
+        try? store.insertPermissionRequest(request)
+        try? store.appendHarnessEvent(
+            HarnessEventRecord(
+                sessionID: sessionID,
+                name: "permission.asked",
+                permissionRequestID: requestID
+            )
+        )
+
+        if var waiting = try? store.session(id: sessionID) {
+            waiting.status = .waitingPermission
+            try? store.updateSession(waiting)
+        }
+
+        let reply = await withCheckedContinuation { continuation in
+            stateLock.withLock { state in
+                state.permissionWaiters[requestID] = continuation
+            }
+        }
+
+        try? store.appendHarnessEvent(
+            HarnessEventRecord(
+                sessionID: sessionID,
+                name: "permission.replied",
+                permissionRequestID: requestID
+            )
+        )
+        try? store.deletePermissionRequest(id: requestID)
+
+        if var running = try? store.session(id: sessionID) {
+            running.status = .running
+            try? store.updateSession(running)
+        }
+
+        switch reply {
+        case .once:
+            return materialized.executeAfterApproval(call: call)
+        case .always:
+            for resource in resources {
+                try? store.insertPermissionRule(
+                    projectPath: session.projectPath,
+                    rule: PermissionRule(action: action, resource: resource, effect: .allow)
+                )
+            }
+            return materialized.executeAfterApproval(call: call)
+        case .reject:
+            return PermissionGate.denialMessage
         }
     }
 
