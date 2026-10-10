@@ -39,16 +39,27 @@ public struct MaterializedTools: Sendable {
         }
 
         guard allowedNames.contains(call.name) else {
-            if Self.registeredBuiltinNames.contains(call.name) {
+            if Self.registeredBuiltinNames.contains(call.name)
+                || MCPHub.shared.isStaleHarnessName(call.name) {
                 return "Stale tool call"
             }
             return "Unknown tool"
+        }
+        if MCPHub.shared.permissionAction(forHarnessName: call.name) != nil {
+            return "MCP tool requires async execution"
         }
         return deliver(call: call)
     }
 
     public func executeAfterApproval(call: ToolCall) -> String {
-        deliver(call: call)
+        if MCPHub.shared.permissionAction(forHarnessName: call.name) != nil {
+            return "MCP tool requires async execution"
+        }
+        return deliver(call: call)
+    }
+
+    public func isMCPTool(_ name: String) -> Bool {
+        MCPHub.shared.permissionAction(forHarnessName: name) != nil
     }
 }
 
@@ -94,6 +105,13 @@ public enum ToolRegistry {
                 definitions.append(BuiltinTools.skill)
                 allowed.insert(BuiltinTools.skill.name)
             }
+        }
+        for mcpTool in MCPHub.shared.toolsForMaterialize(agentID: agent.id) {
+            if onlyNames != nil, !(onlyNames?.contains(mcpTool.harnessName) ?? false) {
+                continue
+            }
+            definitions.append(mcpTool.definition)
+            allowed.insert(mcpTool.harnessName)
         }
         return MaterializedTools(
             definitions: definitions,

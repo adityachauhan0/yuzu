@@ -445,9 +445,18 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         }
 
         if materialized.allowedNames.contains(call.name) {
-            return materialized.executeAfterApproval(call: call)
+            return await executeApproved(call: call, materialized: materialized)
         }
         return materialized.settle(call: call)
+    }
+
+    public func mcpConnect(_ config: MCPServerConfig) async throws {
+        guard let session = try? store.session(id: sessionID) else { return }
+        try await MCPHub.shared.connect(config: config, projectPath: session.projectPath)
+    }
+
+    public func mcpDisconnect(_ serverName: String) {
+        MCPHub.shared.disconnect(serverName: serverName)
     }
 
     private func requestPermission(
@@ -503,7 +512,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
         switch reply {
         case .once:
-            return materialized.executeAfterApproval(call: call)
+            return await executeApproved(call: call, materialized: materialized)
         case .always:
             for resource in resources {
                 try? store.insertPermissionRule(
@@ -511,10 +520,18 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                     rule: PermissionRule(action: action, resource: resource, effect: .allow)
                 )
             }
-            return materialized.executeAfterApproval(call: call)
+            return await executeApproved(call: call, materialized: materialized)
         case .reject:
             return PermissionGate.denialMessage
         }
+    }
+
+    private func executeApproved(call: ToolCall, materialized: MaterializedTools) async -> String {
+        if materialized.isMCPTool(call.name) {
+            let text = await MCPHub.shared.execute(harnessName: call.name, arguments: call.arguments)
+            return ToolOutput.project(raw: text, sessionID: materialized.sessionID, callID: call.id)
+        }
+        return materialized.executeAfterApproval(call: call)
     }
 
     private func consumeModelTurn(request: TurnRequest, supportsMultiple: Bool) async -> AssistantTurn? {

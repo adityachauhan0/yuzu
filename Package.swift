@@ -34,7 +34,10 @@ let package = Package(
         ),
         .testTarget(
             name: "YuzuHarnessTests",
-            dependencies: ["YuzuHarness"]
+            dependencies: ["YuzuHarness"],
+            resources: [
+                .copy("Fixtures"),
+            ]
         ),
         .testTarget(
             name: "LiveUzuTests",

@@ -5,6 +5,7 @@ public enum ContextSourceKey: String, Sendable, Codable, CaseIterable {
     case skillGuidance = "core/skill-guidance"
     case workspace = "core/workspace"
     case date = "core/date"
+    case mcpInstructions = "core/mcp-instructions"
 }
 
 public struct EpochRecord: Sendable, Equatable {
@@ -177,6 +178,7 @@ public struct ContextCoordinator: Sendable {
 
         map[.workspace] = WorkspaceSource.render(projectPath: projectPath)
         map[.date] = DateSource.render()
+        map[.mcpInstructions] = MCPHub.shared.instructionsText() ?? ""
         return map
     }
 
@@ -207,6 +209,9 @@ public struct ContextCoordinator: Sendable {
         if let date = sources[.date], !date.isEmpty {
             parts.append(date)
         }
+        if let mcp = sources[.mcpInstructions], !mcp.isEmpty {
+            parts.append(mcp)
+        }
         return parts.joined(separator: "\n\n")
     }
 
@@ -224,6 +229,8 @@ public struct ContextCoordinator: Sendable {
             return newValue
         case .date:
             return newValue
+        case .mcpInstructions:
+            return newValue.isEmpty ? nil : newValue
         }
     }
 

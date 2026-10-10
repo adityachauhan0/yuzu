@@ -91,8 +91,8 @@ public enum PermissionGate {
         case "skill":
             return "skill"
         default:
-            if toolName.hasPrefix("mcp_") {
-                return "mcp:*"
+            if let action = MCPHub.shared.permissionAction(forHarnessName: toolName) {
+                return action
             }
             return nil
         }
@@ -107,6 +107,9 @@ public enum PermissionGate {
         case "skill":
             return [stringField(arguments, key: "name") ?? "*"]
         default:
+            if let resource = MCPHub.shared.mcpResource(forHarnessName: toolName) {
+                return [resource]
+            }
             return ["*"]
         }
     }
