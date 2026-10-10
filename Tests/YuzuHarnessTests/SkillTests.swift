@@ -63,9 +63,10 @@ struct SkillTests {
         await runner.run()
 
         let epoch = try #require(try store.epochRecord(sessionID: sessionID, epochID: "epoch-1"))
-        #expect(epoch.baselineText.contains("customize-yuzu"))
+        #expect(epoch.baselineText.contains("- customize-yuzu:"))
         #expect(epoch.baselineText.contains("Yuzu's own configuration"))
         #expect(!epoch.baselineText.contains(SkillCatalog.customizeYuzuUniqueBodyMarker))
+        #expect(!epoch.baselineText.contains("## Scope"))
     }
 
     @Test func S2_skillToolReturnsBody() throws {
@@ -77,7 +78,9 @@ struct SkillTests {
             arguments: .object(["name": .string("customize-yuzu")])
         )
         let result = tools.executeAfterApproval(call: call)
+        #expect(result.contains("<skill_content"))
         #expect(result.contains(SkillCatalog.customizeYuzuUniqueBodyMarker))
+        #expect(result.contains("Base directory:"))
         let skill = try #require(SkillCatalog.discover(projectPath: project.path).first { $0.name == "customize-yuzu" })
         #expect(result.contains(skill.directoryPath))
     }
@@ -97,6 +100,7 @@ struct SkillTests {
 
         let tools = materialize(project: project, agent: agent)
         #expect(!tools.definitions.contains { $0.name == "skill" })
+        #expect(!tools.allowedNames.contains("skill"))
     }
 
     @Test func S4_createSkillWritesProjectFile() throws {
@@ -114,7 +118,7 @@ struct SkillTests {
         #expect(contents.contains("description: \(description)"))
 
         let guidance = SkillCatalog.renderGuidance(agentID: "build", projectPath: project.path)
-        #expect(guidance.contains("demo"))
+        #expect(guidance.contains("- demo: \(description)"))
     }
 
     @Test func S5_duplicateNameProjectWins() throws {
