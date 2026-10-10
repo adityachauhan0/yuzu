@@ -211,8 +211,13 @@ public struct ContextCoordinator: Sendable {
         return result
     }
 
+    static let identity = """
+    You are Yuzu, an assistant on the user's Mac. Write poems, stories, emails, and explanations directly in your reply. \
+    Use tools only for files, the shell, the web, or a listed skill's purpose.
+    """
+
     private func renderBaseline(sources: [ContextSourceKey: String]) -> String {
-        var parts: [String] = []
+        var parts: [String] = [Self.identity]
         if let instructions = sources[.instructions], !instructions.isEmpty {
             parts.append(instructions)
         }

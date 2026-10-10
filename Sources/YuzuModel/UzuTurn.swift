@@ -32,10 +32,10 @@ public final class UzuTurn: ModelTurn, @unchecked Sendable {
     }
 
     /// Loads the eval model when the engine catalog returns it, downloading if needed.
-    public static func makeEvalTurn() async throws -> UzuTurn {
+    public static func makeEvalTurn(identifier: String = evalModelIdentifier) async throws -> UzuTurn {
         let engine = try await Engine.create(config: .create())
-        guard let model = try await engine.model(identifier: evalModelIdentifier) else {
-            throw UzuTurnError.modelUnavailable(evalModelIdentifier)
+        guard let model = try await engine.model(identifier: identifier) else {
+            throw UzuTurnError.modelUnavailable(identifier)
         }
         print("UzuTurn eval model: \(model.identifier)")
         let download = try await engine.download(model: model)
@@ -193,7 +193,8 @@ private actor TurnGate {
                             input: input,
                             cached: cached,
                             output: output,
-                            duration: reply.stats.duration
+                            duration: reply.stats.duration,
+                            generateTokensPerSecond: reply.stats.generateTokensPerSecond
                         ))
                     }
                 case .error(let error):

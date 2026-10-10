@@ -38,6 +38,9 @@ public enum ToolRowFormatter {
             return ToolRowPresentation(title: "Glob", detail: stringField(call.arguments, key: "pattern") ?? "")
         case "skill":
             let name = stringField(call.arguments, key: "name") ?? ""
+            if let result, result.contains("skill not found") {
+                return ToolRowPresentation(title: "Skill", detail: "No skill named \(name)")
+            }
             return ToolRowPresentation(title: "Skill", detail: "Loaded \(name)")
         case "task":
             let prompt = stringField(call.arguments, key: "prompt") ?? ""

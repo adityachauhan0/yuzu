@@ -94,7 +94,7 @@ enum BuiltinTools {
 
     static let skill = ToolDefinition(
         name: "skill",
-        description: "Load one skill body by name.",
+        description: "Load a skill's instructions, only when the request clearly matches that skill's description in the system prompt. Most requests need no skill: answer them directly.",
         parameters: .object([
             "type": .string("object"),
             "properties": .object([

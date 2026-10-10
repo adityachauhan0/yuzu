@@ -55,6 +55,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
     /// Overrides materialized tool names for the next boundary (tests).
     public var materializeOnly: Set<String>?
+    /// After one `skill` call, later turns in this drain cannot call `skill` again; small models otherwise loop on it.
+    private var omitSkillTool = false
 
     public var contextCoordinator = ContextCoordinator()
 
@@ -193,6 +195,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     }
 
     private func drainLoop() async {
+        omitSkillTool = false
         guard var session = try? store.session(id: sessionID) else { return }
         session.status = .running
         try? store.updateSession(session)
@@ -265,7 +268,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 savedAllows: savedAllows,
                 manualPressed: session.manualPressed,
                 posture: session.permissionPosture,
-                onlyNames: materializeOnly
+                onlyNames: materializeOnly,
+                omitSkill: omitSkillTool
             )
             materializeOnly = nil
 
@@ -294,7 +298,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 await waitForProviderTurnRelease()
             }
 
-            guard let assistant = await consumeModelTurn(
+            guard var assistant = await consumeModelTurn(
                 request: request,
                 supportsMultiple: session.supportsMultipleToolCalls
             ) else {
@@ -307,6 +311,15 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             session.modelMessageCursor = (try? store.messages(sessionID: sessionID).count) ?? session.modelMessageCursor
             try? store.updateSession(session)
 
+            if omitSkillTool, !assistant.toolCalls.isEmpty, assistant.toolCalls.allSatisfy({ $0.name == "skill" }) {
+                assistant.toolCalls = []
+                if assistant.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    assistant.text = "I couldn't finish that. Try asking again in different words."
+                }
+                try? store.replaceLastAssistant(sessionID: sessionID, message: .assistant(assistant))
+                break loop
+            }
+
             if !assistant.toolCalls.isEmpty {
                 if holdBeforeToolSettle {
                     await waitForToolSettleRelease()
@@ -317,6 +330,9 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 for call in assistant.toolCalls {
                     if isCancelRequested() { break }
                     let result = await settleCall(call: call, materialized: materialized, session: session)
+                    if call.name == "skill" {
+                        omitSkillTool = true
+                    }
                     if call.name == "bash" {
                         try? store.upsertToolResult(
                             sessionID: sessionID,
@@ -826,13 +842,14 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                             try? store.appendMessage(sessionID: sessionID, message: message)
                             assistantStarted = true
                         }
-                    case .usage(let input, let cached, let output, let duration):
+                    case .usage(let input, let cached, let output, let duration, let generateTokensPerSecond):
                         liveGenerationLock.withLock {
                             $0 = LiveGeneration(
                                 inputTokens: input,
                                 cachedTokens: cached,
                                 outputTokens: output,
-                                duration: duration
+                                duration: duration,
+                                generateTokensPerSecond: generateTokensPerSecond
                             )
                         }
                     case .finished(let turn):

@@ -190,8 +190,10 @@ public struct TurnRequest: Sendable {
 public enum TurnEvent: Sendable {
     case text(String)
     case reasoning(String)
-    /// Running totals from the engine: prompt tokens, cached prompt tokens, generated tokens, and seconds so far.
-    case usage(input: Int, cached: Int, output: Int, duration: Double)
+    /// Running totals from the engine. `output` counts every generated token, including reasoning.
+    /// `duration` includes prompt prefill. `generateTokensPerSecond` is the decode rate:
+    /// (output − 1) / (time of last token − time of first token). That excludes prefill.
+    case usage(input: Int, cached: Int, output: Int, duration: Double, generateTokensPerSecond: Double?)
     case finished(AssistantTurn)
 }
 
@@ -200,14 +202,23 @@ public struct LiveGeneration: Sendable, Equatable {
     public var cachedTokens: Int
     public var outputTokens: Int
     public var duration: Double
+    /// Decode tokens per second. Nil until at least two output tokens exist.
+    public var generateTokensPerSecond: Double?
 
     public var totalTokens: Int { inputTokens + cachedTokens + outputTokens }
 
-    public init(inputTokens: Int, cachedTokens: Int, outputTokens: Int, duration: Double) {
+    public init(
+        inputTokens: Int,
+        cachedTokens: Int,
+        outputTokens: Int,
+        duration: Double,
+        generateTokensPerSecond: Double? = nil
+    ) {
         self.inputTokens = inputTokens
         self.cachedTokens = cachedTokens
         self.outputTokens = outputTokens
         self.duration = duration
+        self.generateTokensPerSecond = generateTokensPerSecond
     }
 }
 

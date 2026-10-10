@@ -70,6 +70,51 @@ struct SkillTests {
         #expect(!epoch.baselineText.contains("## Scope"))
     }
 
+    @Test func missingSkillDoesNotLoop() async throws {
+        let project = try makeWorkspace()
+        let (store, runner, script, sessionID) = try makeRunner(
+            project: project,
+            turns: [
+                AssistantTurn(
+                    text: "",
+                    toolCalls: [
+                        ToolCall(id: "call-poem", name: "skill", arguments: .object(["name": .string("poem")])),
+                    ]
+                ),
+                AssistantTurn(
+                    text: "",
+                    toolCalls: [
+                        ToolCall(id: "call-poem-2", name: "skill", arguments: .object(["name": .string("poem")])),
+                    ]
+                ),
+                AssistantTurn(text: "should not run"),
+            ]
+        )
+
+        await runner.prompt("tell me a poem", delivery: .queue)
+        await runner.run()
+
+        let messages = try store.messages(sessionID: sessionID)
+        let tools = messages.filter { $0.role == StoredMessage.Role.tool }
+        #expect(tools.count == 1)
+        #expect(tools[0].text.contains("skill not found: poem"))
+        #expect(tools[0].text.contains("Available skills:"))
+        #expect(tools[0].text.contains("customize-yuzu"))
+        #expect(tools[0].text.contains("Do not call the skill tool again"))
+        let last = try #require(messages.last)
+        #expect(last.role == StoredMessage.Role.assistant)
+        #expect(last.toolCalls.isEmpty)
+        #expect(!last.text.contains("should not run"))
+        #expect(script.requests.count == 2)
+        #expect(script.requests[0].tools.contains { $0.name == "skill" })
+        #expect(!script.requests[1].tools.contains { $0.name == "skill" })
+        let row = ToolRowFormatter.present(
+            call: ToolCall(id: "call-poem", name: "skill", arguments: .object(["name": .string("poem")])),
+            result: tools[0].text
+        )
+        #expect(row.detail == "No skill named poem")
+    }
+
     @Test func S2_skillToolReturnsBody() throws {
         let project = try makeWorkspace()
         let tools = materialize(project: project)

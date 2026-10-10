@@ -402,7 +402,13 @@ final class AppModel: ObservableObject {
         applyLiveGeneration()
         let added = outputTokens(sessionID: target) - tokensBefore
         let elapsed = Date().timeIntervalSince(started)
-        if speedLabel == "—", added > 0, elapsed >= 0.5 {
+        if speedLabel == "—",
+           let live = runner.liveGeneration(),
+           let rate = live.generateTokensPerSecond,
+           rate.isFinite,
+           rate > 0 {
+            speedLabel = "\(Int(rate.rounded())) tok/s"
+        } else if speedLabel == "—", added > 0, elapsed >= 0.5 {
             speedLabel = "\(Int((Double(added) / elapsed).rounded())) tok/s"
         }
         log("turn finished session=\(target) tokens=\(added) seconds=\(String(format: "%.1f", elapsed))")
@@ -930,10 +936,13 @@ final class AppModel: ObservableObject {
     }
 
     private func applyLiveGeneration() {
-        guard let live = runner.liveGeneration(), live.totalTokens > 0 else { return }
-        if live.duration >= 0.05 {
-            speedLabel = "\(Int((Double(live.totalTokens) / live.duration).rounded())) tok/s"
+        guard let live = runner.liveGeneration() else { return }
+        // Decode rate: (generated tokens − 1) / time since the first token.
+        // Prefill is not in the denominator. Reasoning tokens are part of the generated count.
+        if let rate = live.generateTokensPerSecond, rate.isFinite, rate > 0 {
+            speedLabel = "\(Int(rate.rounded())) tok/s"
         }
+        guard live.totalTokens > 0 else { return }
         guard let session = try? store.session(id: sessionID), session.contextLength > 0 else { return }
         let pct = min(100, Int((Double(live.totalTokens) / Double(session.contextLength) * 100).rounded()))
         liveContextLabel = "\(live.totalTokens.formatted()) (\(pct)%)"

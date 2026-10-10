@@ -68,9 +68,9 @@ public enum SkillCatalog {
             return "No skills are currently available."
         }
         var lines = [
-            "When a task matches one of the skills below, call the `skill` tool with its `name`.",
+            "Skills are optional instructions for narrow tasks. Call the `skill` tool only when the request clearly matches a skill's description below. For everything else, answer directly without the `skill` tool.",
             "",
-            "Available skills:",
+            "Available skills (this is the complete list):",
         ]
         for skill in skills {
             lines.append("- \(skill.name): \(skill.description)")
@@ -84,7 +84,9 @@ public enum SkillCatalog {
 
     public static func skillToolResult(name: String, projectPath: String) -> String {
         guard let skill = discover(projectPath: projectPath).first(where: { $0.name == name }) else {
-            return "Error: skill not found: \(name)"
+            let available = discover(projectPath: projectPath).map(\.name)
+            let list = available.isEmpty ? "none" : available.joined(separator: ", ")
+            return "Error: skill not found: \(name). Available skills: \(list). Do not call the skill tool again. Reply to the user."
         }
         let siblings = siblingFilePaths(directory: skill.directoryPath, limit: 10)
         let filesBlock = siblings.isEmpty ? "" : "\n<skill_files>\n\(siblings.joined(separator: "\n"))\n</skill_files>"

@@ -99,7 +99,8 @@ public enum ToolRegistry {
         savedAllows: [PermissionRule],
         manualPressed: Bool,
         posture: PermissionPosture? = nil,
-        onlyNames: Set<String>? = nil
+        onlyNames: Set<String>? = nil,
+        omitSkill: Bool = false
     ) -> MaterializedTools {
         let posture = posture ?? PermissionPosture(manualPressed: manualPressed)
         var definitions: [ToolDefinition] = []
@@ -114,7 +115,7 @@ public enum ToolRegistry {
             definitions.append(tool)
             allowed.insert(tool.name)
         }
-        if onlyNames == nil || onlyNames?.contains(BuiltinTools.skill.name) == true {
+        if !omitSkill, onlyNames == nil || onlyNames?.contains(BuiltinTools.skill.name) == true {
             if shouldMaterializeSkill(agent: agent, projectPath: projectPath) {
                 definitions.append(BuiltinTools.skill)
                 allowed.insert(BuiltinTools.skill.name)

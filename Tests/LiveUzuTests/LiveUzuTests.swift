@@ -122,6 +122,43 @@ struct LiveUzuTests {
     }
 }
 
+@Suite(.serialized)
+struct LiveHarnessTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["YUZU_LIVE_HARNESS_MODEL"] != nil))
+    func U4_poemIsWrittenWithoutSkillLoops() async throws {
+        let identifier = try #require(ProcessInfo.processInfo.environment["YUZU_LIVE_HARNESS_MODEL"])
+        let turn = try await UzuTurn.makeEvalTurn(identifier: identifier)
+        let project = FileManager.default.temporaryDirectory
+            .appendingPathComponent("yuzu-u4-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        let store = try HarnessStore(path: project.appendingPathComponent("s.sqlite").path)
+        try store.insertSession(
+            SessionRecord(
+                id: "u4",
+                projectPath: project.path,
+                agentID: "build",
+                modelIdentifier: identifier,
+                epochID: "u4-epoch",
+                stepCount: 0,
+                supportsMultipleToolCalls: true,
+                status: .idle,
+                modelMessageCursor: 0
+            )
+        )
+        let runner = SessionRunner(sessionID: "u4", store: store, model: turn)
+        await runner.prompt("tell me a poem", delivery: .queue)
+        await runner.run()
+
+        let messages = try store.messages(sessionID: "u4")
+        let skillCalls = messages.flatMap(\.toolCalls).filter { $0.name == "skill" }
+        let last = try #require(messages.last { $0.role == StoredMessage.Role.assistant })
+        print("U4 skill calls=\(skillCalls.count) messages=\(messages.count) reply=\(last.text)")
+        #expect(skillCalls.count <= 1)
+        #expect(last.toolCalls.isEmpty)
+        #expect(last.text.split(separator: "\n").count >= 3, "reply was \(last.text)")
+    }
+}
+
 private let evalContextLength = 32_768
 
 private let echoArguments = JSONValue.object(["text": .string("ping")])
