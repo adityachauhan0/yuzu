@@ -17,7 +17,7 @@ Chat, write, and code with a model that runs entirely on your machine.
 
 <br/>
 
-<img src=".github/assets/demo.jpg" width="860" alt="Yuzu's Cowork home: a quiet page that says 'The lid is open.' above a composer with the Qwen3.5 9B model selected" />
+<img src=".github/assets/demo.gif" width="860" alt="Yuzu demo: switching between Cowork and Code, with the model, CPU, and RAM shown live" />
 
 </div>
 

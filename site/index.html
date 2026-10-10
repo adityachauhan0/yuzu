@@ -7,7 +7,7 @@
 <meta name="description" content="Chat, write, and code with a model that runs entirely on your Mac. Yuzu is a native SwiftUI app around a real agent harness, powered by uzu." />
 <meta property="og:title" content="Yuzu: a local AI workspace for your Mac" />
 <meta property="og:description" content="Chat, write, and code with a model that runs entirely on your Mac." />
-<meta property="og:image" content="https://adityachauhan0.github.io/yuzu/assets/demo.jpg" />
+<meta property="og:image" content="https://adityachauhan0.github.io/yuzu/assets/demo-poster.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" type="image/png" href="assets/favicon.png" />
 <style>
@@ -83,7 +83,7 @@
           border: 1px solid var(--line-soft); background: var(--surface); transform: perspective(1600px) rotateX(4deg);
           transition: transform .6s var(--ease); }
   .demo:hover { transform: none; }
-  .demo img { display: block; width: 100%; height: auto; }
+  .demo video { display: block; width: 100%; height: auto; aspect-ratio: 1280 / 720; background: var(--side); }
 
   /* Sections */
   section.wrap { padding-top: 112px; }
@@ -206,7 +206,8 @@
   <p class="fine">Free and open source under AGPL-3.0 · No account · No cloud</p>
 
   <div class="demo">
-    <img src="assets/demo.jpg" alt="Yuzu's Cowork page: 'The lid is open.' above a composer with Qwen3.5 9B selected and three idea chips" />
+    <video src="assets/demo.mp4" poster="assets/demo-poster.jpg" autoplay muted loop playsinline preload="auto"
+           aria-label="Yuzu demo: switching between Cowork and Code, with the model, CPU, and RAM shown live"></video>
   </div>
 </header>
 
