@@ -175,31 +175,29 @@ private actor TurnGate {
     }
 
     private func messages(for request: TurnRequest, includeTools: Bool, effort: YuzuHarness.ReasoningEffort) throws -> [ChatMessage] {
-        var systemTexts: [String] = []
-        var rest: [ChatMessage] = []
+        // Qwen's template accepts one system message, and only when it is first.
+        // Tools ride on a developer message, which this renderer keeps out of that list.
+        // A tool result stays behind the assistant call that requested it.
+        var systemParts: [String] = []
+        var conversation: [StoredMessage] = []
         for message in request.delta {
-            if message.role == .system {
+            switch message.role {
+            case .system, .developer:
                 if !message.text.isEmpty {
-                    systemTexts.append(message.text)
+                    systemParts.append(message.text)
                 }
-                continue
+            case .user, .assistant, .tool:
+                conversation.append(message)
             }
-            rest.append(try chatMessage(message, effort: effort))
         }
-        // Qwen's template allows one system message, and it must be first.
         var messages: [ChatMessage] = []
-        let merged = systemTexts.joined(separator: "\n\n")
-        if !merged.isEmpty {
-            messages.append(ChatMessage.system().withText(text: merged))
-        } else if includeTools {
-            messages.append(
-                ChatMessage.system().withText(text: "You are Yuzu, an on-device coding assistant.")
-            )
+        if !systemParts.isEmpty {
+            messages.append(ChatMessage.system().withText(text: systemParts.joined(separator: "\n\n")))
         }
         if includeTools {
             messages.append(try toolNamespaceMessage(request.tools))
         }
-        messages.append(contentsOf: rest)
+        messages.append(contentsOf: try conversation.map { try chatMessage($0, effort: effort) })
         return messages
     }
 
