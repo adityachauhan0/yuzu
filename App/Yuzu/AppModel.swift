@@ -41,6 +41,9 @@ final class AppModel: ObservableObject {
     @Published var showTaskThread = false
     @Published var inspectorOpen = true
     @Published var contentWidth: CGFloat = 1440
+    @Published var sidebarCollapsed = false
+    @Published var codeFolderName = "Select folder…"
+    @Published var keepAwake = false
 
     let store: HarnessStore
     let runner: SessionRunner
@@ -149,6 +152,18 @@ final class AppModel: ObservableObject {
 
     var hasProjects: Bool { false }
     var hasArtifacts: Bool { false }
+    var hasPinnedItems: Bool { false }
+    var recentTaskTitles: [String] { [] }
+    var totalTokenCount: Int { 0 }
+
+    var modelDisplayName: String {
+        (try? store.session(id: sessionID)?.modelIdentifier) ?? "scripted"
+    }
+
+    var gatsbyUsageNote: String {
+        let multiple = max(1, totalTokenCount / 62_000)
+        return "You've used ~\(multiple)× more tokens than The Great Gatsby."
+    }
 
     func applyTestRoute(_ route: UITestRoute) {
         settingsPresented = false

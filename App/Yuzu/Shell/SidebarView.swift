@@ -7,16 +7,7 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                HStack(spacing: 9) {
-                    Circle().fill(Color(red: 1, green: 0.37, blue: 0.34)).frame(width: 14, height: 14)
-                    Circle().fill(Color(red: 1, green: 0.74, blue: 0.18)).frame(width: 14, height: 14)
-                    Circle().fill(Color(red: 0.16, green: 0.78, blue: 0.25)).frame(width: 14, height: 14)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .frame(height: 54)
+            windowBar
 
             ModeSwitch(colors: colors, reduceMotion: reduceMotion)
                 .padding(.horizontal, 10)
@@ -33,13 +24,23 @@ struct SidebarView: View {
             .padding(.horizontal, 10)
             .accessibilityLabel("Primary")
 
+            if model.hasPinnedItems {
+                pinnedSection
+            }
+
+            tasksSection
+
             Spacer()
 
             Button {
                 model.openSettings()
             } label: {
-                HStack {
-                    Image(systemName: "cat.fill")
+                HStack(spacing: 10) {
+                    if let logo = HandoffImage.coworkLogo(dark: model.theme == .dark) {
+                        logo.resizable().scaledToFit().frame(width: 28, height: 28)
+                    } else {
+                        Image(systemName: "cat.fill")
+                    }
                     Text("Yuzu Beta")
                     Spacer()
                     Image(systemName: "chevron.down")
@@ -58,6 +59,89 @@ struct SidebarView: View {
                 .frame(width: 1)
         }
         .accessibilityID("sidebar")
+    }
+
+    private var windowBar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 9) {
+                Circle().fill(Color(red: 1, green: 0.37, blue: 0.34)).frame(width: 14, height: 14)
+                Circle().fill(Color(red: 1, green: 0.74, blue: 0.18)).frame(width: 14, height: 14)
+                Circle().fill(Color(red: 0.16, green: 0.78, blue: 0.25)).frame(width: 14, height: 14)
+            }
+            Spacer()
+            Button {
+                model.sidebarCollapsed.toggle()
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 14))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(colors.muted)
+            .accessibilityID("sidebar-toggle")
+
+            Button {} label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(colors.muted)
+            .accessibilityID("search-button")
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 54)
+    }
+
+    private var pinnedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pinned")
+                .font(.system(size: 14))
+                .foregroundStyle(colors.dim)
+                .padding(.horizontal, 18)
+            // Pinned rows appear when sessions or projects are pinned.
+        }
+        .padding(.top, 27)
+    }
+
+    private var tasksSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Tasks")
+                    .font(.system(size: 14))
+                    .foregroundStyle(colors.dim)
+                Spacer()
+                Button {} label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 14))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .accessibilityID("task-settings")
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 27)
+
+            ForEach(model.recentTaskTitles, id: \.self) { title in
+                Button {
+                    model.selectCowork(.task)
+                } label: {
+                    HStack(spacing: 17) {
+                        Circle().fill(colors.muted).frame(width: 7, height: 7)
+                        Text(title)
+                            .font(.system(size: 15))
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(.leading, 33)
+                    .padding(.trailing, 10)
+                    .padding(.vertical, 3)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+            }
+        }
     }
 
     private func navButton(_ destination: CoworkDestination, id: String) -> some View {

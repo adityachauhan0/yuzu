@@ -8,6 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */; };
+		0A1B2C3D4E5F6789012345A /* AccountName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7890123456AB /* AccountName.swift */; };
+		0B1C2D3E4F5061728394A5B6 /* HandoffImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */; };
+		3C4D5E6F708192A3B4C5D6E7 /* cowork-logo.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */; };
+		5E6F708192A3B4C5D6E7F809 /* cowork-logo-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = 6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */; };
+		708192A3B4C5D6E7F8091A2B /* code-input-mascot.svg in Resources */ = {isa = PBXBuildFile; fileRef = 8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */; };
+		92A3B4C5D6E7F8091A2B3C4D /* code-input-mascot-light.svg in Resources */ = {isa = PBXBuildFile; fileRef = A3B4C5D6E7F8091A2B3C4D5E /* code-input-mascot-light.svg */; };
 		089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB02AD51F4822A0DF5D67091 /* AppModel.swift */; };
 		19F67E222F0B9B73FD12E622 /* YuzuHarness in Frameworks */ = {isa = PBXBuildFile; productRef = 852615B4B85114DD92A4FF87 /* YuzuHarness */; };
 		570FF340E02320253373E290 /* TaskThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC6824C46709AB5927357B56 /* TaskThreadView.swift */; };
@@ -36,6 +42,12 @@
 
 /* Begin PBXFileReference section */
 		04717245065E78C16C21A7C0 /* Yuzu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yuzu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A2B3C4D5E6F7890123456AB /* AccountName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountName.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffImage.swift; sourceTree = "<group>"; };
+		4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = cowork-logo.svg; sourceTree = "<group>"; };
+		6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = cowork-logo-light.svg; sourceTree = "<group>"; };
+		8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = code-input-mascot.svg; sourceTree = "<group>"; };
+		A3B4C5D6E7F8091A2B3C4D5E /* code-input-mascot-light.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = code-input-mascot-light.svg; sourceTree = "<group>"; };
 		2891A541671BDA8F63B24C50 /* CodeHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeHomeView.swift; sourceTree = "<group>"; };
 		3DCFFB31B75F4D9EA7DBDEDB /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		401FC88A8CEE39936B0187D0 /* YuzuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuzuApp.swift; sourceTree = "<group>"; };
@@ -100,11 +112,23 @@
 				75773A8409E329362184411A /* Info.plist */,
 				7002D0706CAA850244B41B33 /* Yuzu.entitlements */,
 				401FC88A8CEE39936B0187D0 /* YuzuApp.swift */,
+				C5D6E7F8091A2B3C4D5E6F70 /* Handoff */,
 				5D38B6857571D8E208F7D251 /* Shell */,
 				068858506E36F649C61DF998 /* Testing */,
 				93712F4A7BAB65982FD7AB6A /* Theme */,
 			);
 			path = Yuzu;
+			sourceTree = "<group>";
+		};
+		C5D6E7F8091A2B3C4D5E6F70 /* Handoff */ = {
+			isa = PBXGroup;
+			children = (
+				4D5E6F708192A3B4C5D6E7F8 /* cowork-logo.svg */,
+				6F708192A3B4C5D6E7F8091A /* cowork-logo-light.svg */,
+				8192A3B4C5D6E7F8091A2B3C /* code-input-mascot.svg */,
+				A3B4C5D6E7F8091A2B3C4D5E /* code-input-mascot-light.svg */,
+			);
+			path = Handoff;
 			sourceTree = "<group>";
 		};
 		597585E242451AEBCE68BEC7 /* YuzuTests */ = {
@@ -118,7 +142,9 @@
 		5D38B6857571D8E208F7D251 /* Shell */ = {
 			isa = PBXGroup;
 			children = (
+				1A2B3C4D5E6F7890123456AB /* AccountName.swift */,
 				2891A541671BDA8F63B24C50 /* CodeHomeView.swift */,
+				2B3C4D5E6F708192A3B4C5D6 /* HandoffImage.swift */,
 				89BA3A9405FDE2E41806E87F /* CoworkHomeView.swift */,
 				E2F085D04B69602B7BE4B6B4 /* CustomizeView.swift */,
 				6D6A591E69A9AD62982B71B2 /* RootShellView.swift */,
@@ -162,6 +188,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C8AFDA09FCD86642058F12AF /* Build configuration list for PBXNativeTarget "Yuzu" */;
 			buildPhases = (
+				D6E7F8091A2B3C4D5E6F7081 /* Resources */,
 				7D35B5C02B2031D36486D74D /* Sources */,
 				8FC4946FE250347E2DB33FC1 /* Frameworks */,
 			);
@@ -231,13 +258,29 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		D6E7F8091A2B3C4D5E6F7081 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3C4D5E6F708192A3B4C5D6E7 /* cowork-logo.svg in Resources */,
+				5E6F708192A3B4C5D6E7F809 /* cowork-logo-light.svg in Resources */,
+				708192A3B4C5D6E7F8091A2B /* code-input-mascot.svg in Resources */,
+				92A3B4C5D6E7F8091A2B3C4D /* code-input-mascot-light.svg in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		7D35B5C02B2031D36486D74D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A1B2C3D4E5F6789012345A /* AccountName.swift in Sources */,
 				D0C5A0D6AB131F51818B4F3E /* AccessibilityID.swift in Sources */,
 				089694C6C35DDAE7B1DF32CD /* AppModel.swift in Sources */,
+				0B1C2D3E4F5061728394A5B6 /* HandoffImage.swift in Sources */,
 				907025AA957D9517701EABFF /* CodeHomeView.swift in Sources */,
 				074EF562493B56EBBF50AD49 /* CoworkHomeView.swift in Sources */,
 				AD7E269B38A1F4437999B4E5 /* CustomizeView.swift in Sources */,

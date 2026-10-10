@@ -1,126 +1,323 @@
 import SwiftUI
 import YuzuHarness
 
+enum CodeUsageTab: String, CaseIterable {
+    case overview = "Overview"
+    case models = "Models"
+}
+
+enum CodeUsagePeriod: String, CaseIterable {
+    case all = "All"
+    case days30 = "30d"
+    case days7 = "7d"
+}
+
 struct CodeHomeView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
     @State private var prompt = ""
+    @State private var usageTab: CodeUsageTab = .overview
+    @State private var usagePeriod: CodeUsagePeriod = .all
+
+    private var isDark: Bool { model.theme == .dark }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Spacer()
-            composer
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Code")
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(colors.text)
-            HStack(spacing: 16) {
-                Text("Overview")
-                    .foregroundStyle(colors.accent)
-                Text("Models")
-                    .foregroundStyle(colors.muted)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    heading
+                    usageCard
+                }
+                .frame(maxWidth: CGFloat(Tokens.contentWidth), alignment: .leading)
+                .padding(.top, 55)
             }
-            .font(.system(size: 15))
-            metricRow
+            footer
+                .frame(maxWidth: CGFloat(Tokens.contentWidth))
+                .padding(.bottom, 3)
         }
-        .padding(.top, 28)
-        .frame(maxWidth: CGFloat(Tokens.contentWidth), alignment: .leading)
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private var metricRow: some View {
-        HStack(spacing: 24) {
-            metric("Sessions", value: "0")
-            metric("Messages", value: "0")
-            metric("Total tokens", value: "0")
+    private var heading: some View {
+        HStack(alignment: .center, spacing: 7) {
+            Button {
+                model.selectCowork(.new)
+            } label: {
+                Group {
+                    if let logo = HandoffImage.coworkLogo(dark: isDark) {
+                        logo.resizable().scaledToFit().frame(width: 26, height: 26)
+                    } else {
+                        Image(systemName: "sparkle").font(.system(size: 20))
+                    }
+                }
+                .frame(width: 28, height: 32)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Return to Cowork")
+
+            Text("What's up next, \(AccountName.firstName)?")
+                .font(.system(size: 25, weight: .regular))
+                .foregroundStyle(colors.text)
+                .tracking(-0.6)
+        }
+    }
+
+    private var usageCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                HStack(spacing: 3) {
+                    ForEach(CodeUsageTab.allCases, id: \.self) { tab in
+                        usageTabButton(tab)
+                    }
+                }
+                Spacer()
+                HStack(spacing: 3) {
+                    ForEach(CodeUsagePeriod.allCases, id: \.self) { period in
+                        usagePeriodButton(period)
+                    }
+                }
+            }
+            .padding(.bottom, 23)
+
+            if usageTab == .overview {
+                overviewPanel
+            } else {
+                modelsPanel
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 13)
+        .frame(maxWidth: 576, alignment: .leading)
+        .background(colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .padding(.top, 55)
+        .padding(.leading, 10)
+        .accessibilityLabel("Code usage")
+    }
+
+    private func usageTabButton(_ tab: CodeUsageTab) -> some View {
+        let selected = usageTab == tab
+        return Button {
+            usageTab = tab
+        } label: {
+            Text(tab.rawValue)
+                .font(.system(size: 14))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 1)
+                .background(selected ? colors.selected : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .foregroundStyle(selected ? colors.text : colors.dim)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func usagePeriodButton(_ period: CodeUsagePeriod) -> some View {
+        let selected = usagePeriod == period
+        return Button {
+            usagePeriod = period
+        } label: {
+            Text(period.rawValue)
+                .font(.system(size: 14))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 1)
+                .background(selected ? colors.selected : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .foregroundStyle(selected ? colors.text : colors.dim)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var overviewPanel: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 3),
+                spacing: 5
+            ) {
+                codeMetric("Sessions", value: "0")
+                codeMetric("Messages", value: "0")
+                codeMetric("Total tokens", value: "0")
+                codeMetric("Active days", value: "0")
+                codeMetric("Peak hour", value: "—")
+                codeMetric("Favorite model", value: "—", small: true)
+            }
+
+            heatmap
+
+            if model.totalTokenCount > 0 {
+                Text(model.gatsbyUsageNote)
+                    .font(.system(size: 13))
+                    .foregroundStyle(colors.dim)
+                    .padding(.top, 5)
+            }
+        }
+    }
+
+    private var modelsPanel: some View {
+        HStack {
+            Text(model.modelDisplayName)
+                .font(.system(size: 15))
+                .foregroundStyle(colors.text)
             Spacer()
-            Text("—")
-                .font(.system(size: 11))
+            Text("Favorite model")
+                .font(.system(size: 13))
                 .foregroundStyle(colors.dim)
-                .accessibilityID("code-speed", label: "speed —")
         }
+        .padding(.horizontal, 9)
+        .frame(minHeight: 54)
+        .background(colors.selected)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .frame(minHeight: 162, alignment: .top)
     }
 
-    private func metric(_ title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private func codeMetric(_ title: String, value: String, small: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
             Text(title)
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundStyle(colors.dim)
+                .lineLimit(1)
             Text(value)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: small ? 14 : 16, weight: small ? .regular : .medium))
                 .foregroundStyle(colors.text)
         }
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .topLeading)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .background(colors.selected)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private var composer: some View {
+    private var heatmap: some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 26),
+            spacing: 4
+        ) {
+            ForEach(0..<26, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(colors.line)
+                    .aspectRatio(1, contentMode: .fit)
+            }
+        }
+        .accessibilityLabel("Activity over time")
+    }
+
+    private var footer: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Button {
                 } label: {
-                    Label("Local", systemImage: "desktopcomputer")
-                        .font(.system(size: 13))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                    Label("Local", systemImage: "rectangle.split.3x1")
+                        .font(.system(size: 14))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3)
                         .background(colors.selected)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
                 .accessibilityID("code-local")
 
-                Button("Select folder…") {}
-                    .buttonStyle(.plain)
-                    .foregroundStyle(colors.muted)
-                    .font(.system(size: 13))
-            }
-
-            VStack(spacing: 0) {
-                TextField("Describe a task or ask a question", text: $prompt, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...4)
-                    .padding(16)
-                    .foregroundStyle(colors.text)
-
-                HStack {
-                    Button("+") {}
-                        .buttonStyle(.plain)
-                        .foregroundStyle(colors.muted)
-                    Button {
-                        Task { await model.toggleManual() }
-                    } label: {
-                        Text("Manual")
-                            .font(.system(size: 13))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(model.manualPressed ? colors.selected : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityID("code-manual")
-                    Spacer()
-                    Button("High") {}
-                        .buttonStyle(.plain)
-                        .foregroundStyle(colors.muted)
-                    Button {
-                        Task { await model.sendPrompt(prompt) }
-                    } label: {
-                        Image(systemName: "arrow.up")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(colors.accent)
+                Button {
+                } label: {
+                    Label(model.codeFolderName, systemImage: "folder")
+                        .font(.system(size: 14))
+                        .lineLimit(1)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3)
+                        .background(colors.surfaceHover)
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .accessibilityID("code-folder")
             }
-            .background(colors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(colors.line, lineWidth: 1))
+
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    TextField("Describe a task or ask a question", text: $prompt, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .lineLimit(1...6)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(colors.text)
+                        .font(.system(size: 16))
+
+                    HStack {
+                        Spacer()
+                        Button {
+                            Task { await model.sendPrompt(prompt) }
+                        } label: {
+                            Image(systemName: "arrow.turn.down.left")
+                                .font(.system(size: 15))
+                                .frame(width: 40, height: 40)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(colors.dim)
+                    }
+                    .padding(.trailing, 5)
+                }
+                .background(colors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.line, lineWidth: 1))
+
+                if let mascot = HandoffImage.codeMascot(dark: isDark) {
+                    mascot
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 56)
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 83)
+                        .allowsHitTesting(false)
+                }
+            }
+
+            HStack(spacing: 11) {
+                Button("+") {}
+                    .buttonStyle(.plain)
+                    .font(.system(size: 23))
+                    .foregroundStyle(colors.dim)
+                    .frame(width: 26)
+                    .accessibilityLabel("Add context")
+
+                Button {
+                    Task { await model.toggleManual() }
+                } label: {
+                    Text("Manual")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(red: 0.89, green: 0.67, blue: 0.02))
+                        .padding(.horizontal, 4)
+                        .background(model.manualPressed ? colors.selected.opacity(0.5) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .accessibilityID("code-manual")
+
+                Spacer()
+
+                HStack(spacing: 5) {
+                    Button(model.modelDisplayName) {}
+                        .buttonStyle(.plain)
+                        .font(.system(size: 14))
+                        .foregroundStyle(colors.text)
+                        .lineLimit(1)
+                        .accessibilityID("code-model-button")
+
+                    Text("—")
+                        .font(.system(size: 11))
+                        .foregroundStyle(colors.dim)
+                        .accessibilityID("code-speed", label: "speed —")
+                }
+
+                Button("High") {}
+                    .buttonStyle(.plain)
+                    .font(.system(size: 14))
+                    .foregroundStyle(colors.text)
+                    .padding(.horizontal, 4)
+                    .accessibilityID("code-effort")
+            }
+            .padding(.top, 5)
         }
-        .frame(maxWidth: CGFloat(Tokens.contentWidth))
+        .padding(.top, 20)
     }
 }
