@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public enum PermissionEvaluator {
     public static let unknownAgentDenyAll: [PermissionRule] = [
@@ -57,7 +58,20 @@ public enum PermissionEvaluator {
 }
 
 public enum AgentCatalog {
+    private static let customAgentsLock = OSAllocatedUnfairLock(initialState: [String: Agent]())
+
+    public static func registerForTests(_ agent: Agent) {
+        customAgentsLock.withLock { $0[agent.id] = agent }
+    }
+
+    public static func resetCustomAgentsForTests() {
+        customAgentsLock.withLock { $0 = [:] }
+    }
+
     public static func agent(id: String) -> Agent? {
+        if let custom = customAgentsLock.withLock({ $0[id] }) {
+            return custom
+        }
         switch id {
         case Agent.build.id:
             return .build
@@ -76,7 +90,14 @@ public enum AgentCatalog {
 public enum PermissionGate {
     public static let denialMessage = "Permission denied"
 
-    public static func permissionAction(for toolName: String) -> String? {
+    public static func permissionAction(for toolName: String, arguments: JSONValue? = nil) -> String? {
+        if toolName == "read_resource", let arguments {
+            if let uri = stringField(arguments, key: "uri"),
+               let server = MCPHub.shared.serverName(forResourceURI: uri) {
+                return "mcp:\(server)"
+            }
+            return "mcp:*"
+        }
         switch toolName {
         case "read":
             return "read"
@@ -90,6 +111,10 @@ public enum PermissionGate {
             return "bash"
         case "skill":
             return "skill"
+        case "task":
+            return "task"
+        case "read_resource":
+            return nil
         default:
             if let action = MCPHub.shared.permissionAction(forHarnessName: toolName) {
                 return action
@@ -106,6 +131,13 @@ public enum PermissionGate {
             return [stringField(arguments, key: "command") ?? "*"]
         case "skill":
             return [stringField(arguments, key: "name") ?? "*"]
+        case "task":
+            return [stringField(arguments, key: "agent") ?? "*"]
+        case "read_resource":
+            if let server = MCPHub.shared.serverName(forResourceURI: stringField(arguments, key: "uri")) {
+                return [server]
+            }
+            return ["*"]
         default:
             if let resource = MCPHub.shared.mcpResource(forHarnessName: toolName) {
                 return [resource]

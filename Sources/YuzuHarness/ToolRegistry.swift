@@ -10,7 +10,7 @@ public struct MaterializedTools: Sendable {
     public let manualPressed: Bool
 
     private static let registeredBuiltinNames: Set<String> = [
-        "read", "glob", "grep", "write", "edit", "bash", "skill",
+        "read", "glob", "grep", "write", "edit", "bash", "skill", "task", "read_resource",
     ]
 
     private func deliver(call: ToolCall) -> String {
@@ -19,7 +19,7 @@ public struct MaterializedTools: Sendable {
     }
 
     public func settle(call: ToolCall) -> String {
-        if let action = PermissionGate.permissionAction(for: call.name) {
+        if let action = PermissionGate.permissionAction(for: call.name, arguments: call.arguments) {
             let resources = PermissionGate.resources(toolName: call.name, arguments: call.arguments)
             let effects = resources.map { resource in
                 PermissionEvaluator.effect(
@@ -45,6 +45,9 @@ public struct MaterializedTools: Sendable {
             }
             return "Unknown tool"
         }
+        if call.name == "task" || call.name == "read_resource" {
+            return "Builtin tool requires async execution"
+        }
         if MCPHub.shared.permissionAction(forHarnessName: call.name) != nil {
             return "MCP tool requires async execution"
         }
@@ -52,6 +55,9 @@ public struct MaterializedTools: Sendable {
     }
 
     public func executeAfterApproval(call: ToolCall) -> String {
+        if call.name == "task" || call.name == "read_resource" {
+            return "Builtin tool requires async execution"
+        }
         if MCPHub.shared.permissionAction(forHarnessName: call.name) != nil {
             return "MCP tool requires async execution"
         }
@@ -104,6 +110,19 @@ public enum ToolRegistry {
             if shouldMaterializeSkill(agent: agent, projectPath: projectPath) {
                 definitions.append(BuiltinTools.skill)
                 allowed.insert(BuiltinTools.skill.name)
+            }
+        }
+        if onlyNames == nil || onlyNames?.contains(BuiltinTools.task.name) == true {
+            if !PermissionGate.isWhollyDenied(agentID: agent.id, action: "task") {
+                definitions.append(BuiltinTools.task)
+                allowed.insert(BuiltinTools.task.name)
+            }
+        }
+        if onlyNames == nil || onlyNames?.contains(BuiltinTools.readResource.name) == true {
+            if MCPHub.shared.hasExposedResources(),
+               !MCPHub.shared.isReadResourceWhollyDenied(agentID: agent.id) {
+                definitions.append(BuiltinTools.readResource)
+                allowed.insert(BuiltinTools.readResource.name)
             }
         }
         for mcpTool in MCPHub.shared.toolsForMaterialize(agentID: agent.id) {

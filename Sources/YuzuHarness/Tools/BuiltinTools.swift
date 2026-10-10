@@ -107,6 +107,40 @@ enum BuiltinTools {
         ])
     )
 
+    static let task = ToolDefinition(
+        name: "task",
+        description: "Run a subagent with its own drain on the shared model.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "agent": .object([
+                    "type": .string("string"),
+                    "description": .string("Subagent id"),
+                ]),
+                "prompt": .object([
+                    "type": .string("string"),
+                    "description": .string("User prompt for the subagent"),
+                ]),
+            ]),
+            "required": .array([.string("agent"), .string("prompt")]),
+        ])
+    )
+
+    static let readResource = ToolDefinition(
+        name: "read_resource",
+        description: "Read one MCP server resource by URI.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "uri": .object([
+                    "type": .string("string"),
+                    "description": .string("Resource URI"),
+                ]),
+            ]),
+            "required": .array([.string("uri")]),
+        ])
+    )
+
     static let grep = ToolDefinition(
         name: "grep",
         description: "Search file contents inside the project.",

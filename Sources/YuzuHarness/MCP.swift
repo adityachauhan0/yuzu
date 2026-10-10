@@ -21,6 +21,7 @@ public struct MCPServerConfig: Sendable, Equatable {
 public enum MCPConnectionStatus: Sendable, Equatable {
     case connected
     case failed(String)
+    case needsAuth
 }
 
 public struct MCPRegisteredTool: Sendable, Equatable {
@@ -41,11 +42,14 @@ public final class MCPHub: @unchecked Sendable {
         var session: MCPSession
         var tools: [MCPRegisteredTool]
         var instructions: String?
+        var prompts: [MCPPromptDescriptor]
+        var resources: [MCPResourceDescriptor]
     }
 
     private struct HubState {
         var servers: [String: ServerState] = [:]
         var staleHarnessNames: Set<String> = []
+        var needsAuthServers: Set<String> = []
     }
 
     private let lock = OSAllocatedUnfairLock(initialState: HubState())
@@ -66,8 +70,25 @@ public final class MCPHub: @unchecked Sendable {
             session = MCPHTTPSession(urlString: url, headers: headers, timeout: config.timeout)
         }
 
+        do {
+            try await finishConnect(config: config, session: session, projectPath: projectPath)
+        } catch MCPError.needsAuthentication {
+            lock.withLock { state in
+                state.needsAuthServers.insert(config.name)
+                session.close()
+            }
+        }
+    }
+
+    private func finishConnect(
+        config: MCPServerConfig,
+        session: MCPSession,
+        projectPath: String
+    ) async throws {
         let initResult = try await session.initialize(projectPath: projectPath)
         let listResult = try await session.toolsList()
+        let promptList = (try? await session.promptsList()) ?? []
+        let resourceList = (try? await session.resourcesList()) ?? []
 
         let serverTools = listResult.map { tool in
             let harnessName = MCPNaming.harnessName(server: config.name, tool: tool.name)
@@ -86,6 +107,7 @@ public final class MCPHub: @unchecked Sendable {
         }
 
         lock.withLock { state in
+            state.needsAuthServers.remove(config.name)
             for tool in serverTools {
                 state.staleHarnessNames.remove(tool.harnessName)
             }
@@ -93,7 +115,9 @@ public final class MCPHub: @unchecked Sendable {
                 config: config,
                 session: session,
                 tools: serverTools,
-                instructions: initResult.instructions
+                instructions: initResult.instructions,
+                prompts: promptList,
+                resources: resourceList
             )
         }
     }
@@ -110,8 +134,74 @@ public final class MCPHub: @unchecked Sendable {
 
     public func status(serverName: String) -> MCPConnectionStatus? {
         lock.withLock { state in
+            if state.needsAuthServers.contains(serverName) {
+                return .needsAuth
+            }
             guard state.servers[serverName] != nil else { return nil }
             return .connected
+        }
+    }
+
+    public func promptNames(serverName: String) -> [String] {
+        lock.withLock { state in
+            state.servers[serverName]?.prompts.map(\.name) ?? []
+        }
+    }
+
+    public func getPromptText(serverName: String, name: String) async throws -> String {
+        let session = lock.withLock { state -> MCPSession? in
+            state.servers[serverName]?.session
+        }
+        guard let session else {
+            throw MCPError.requestFailed("server not connected")
+        }
+        return try await session.promptsGet(name: name)
+    }
+
+    public func hasExposedResources() -> Bool {
+        lock.withLock { state in
+            state.servers.values.contains { !$0.resources.isEmpty }
+        }
+    }
+
+    public func isReadResourceWhollyDenied(agentID: String) -> Bool {
+        let servers = lock.withLock { state in
+            state.servers.values.filter { !$0.resources.isEmpty }.map(\.config.name)
+        }
+        guard !servers.isEmpty else { return true }
+        return servers.allSatisfy { server in
+            PermissionGate.isWhollyDenied(agentID: agentID, action: "mcp:\(server)")
+        }
+    }
+
+    public func serverName(forResourceURI uri: String?) -> String? {
+        guard let uri else { return nil }
+        return lock.withLock { state -> String? in
+            for server in state.servers.values {
+                if server.resources.contains(where: { $0.uri == uri }) {
+                    return server.config.name
+                }
+            }
+            return nil
+        }
+    }
+
+    public func readResource(uri: String) async -> String {
+        let sessionPair = lock.withLock { state -> (MCPSession, String)? in
+            for server in state.servers.values {
+                if server.resources.contains(where: { $0.uri == uri }) {
+                    return (server.session, server.config.name)
+                }
+            }
+            return nil
+        }
+        guard let (session, _) = sessionPair else {
+            return "Unknown resource"
+        }
+        do {
+            return try await session.resourcesRead(uri: uri)
+        } catch {
+            return "MCP error: \(error.localizedDescription)"
         }
     }
 
@@ -192,6 +282,7 @@ public final class MCPHub: @unchecked Sendable {
             }
             state.servers = [:]
             state.staleHarnessNames = []
+            state.needsAuthServers = []
         }
     }
 }
@@ -238,10 +329,23 @@ struct MCPToolDescriptor: Sendable {
     var inputSchema: JSONValue
 }
 
+struct MCPPromptDescriptor: Sendable {
+    var name: String
+}
+
+struct MCPResourceDescriptor: Sendable {
+    var uri: String
+    var name: String
+}
+
 protocol MCPSession: Sendable {
     func initialize(projectPath: String) async throws -> MCPInitializeResult
     func toolsList() async throws -> [MCPToolDescriptor]
     func toolsCall(name: String, arguments: JSONValue) async throws -> String
+    func promptsList() async throws -> [MCPPromptDescriptor]
+    func promptsGet(name: String) async throws -> String
+    func resourcesList() async throws -> [MCPResourceDescriptor]
+    func resourcesRead(uri: String) async throws -> String
     func close()
 }
 
@@ -311,6 +415,7 @@ enum MCPError: Error {
     case requestFailed(String)
     case timedOut
     case processFailed
+    case needsAuthentication
 }
 
 // MARK: - Stdio transport
@@ -456,6 +561,35 @@ final class MCPStdioSession: MCPSession, @unchecked Sendable {
         return extractToolText(result)
     }
 
+    func promptsList() async throws -> [MCPPromptDescriptor] {
+        let result = try await request(method: "prompts/list", params: [:])
+        guard let prompts = result["prompts"] as? [[String: Any]] else { return [] }
+        return prompts.compactMap { item in
+            guard let name = item["name"] as? String else { return nil }
+            return MCPPromptDescriptor(name: name)
+        }
+    }
+
+    func promptsGet(name: String) async throws -> String {
+        let result = try await request(method: "prompts/get", params: ["name": name])
+        return extractPromptText(result)
+    }
+
+    func resourcesList() async throws -> [MCPResourceDescriptor] {
+        let result = try await request(method: "resources/list", params: [:])
+        guard let resources = result["resources"] as? [[String: Any]] else { return [] }
+        return resources.compactMap { item in
+            guard let uri = item["uri"] as? String else { return nil }
+            let name = item["name"] as? String ?? uri
+            return MCPResourceDescriptor(uri: uri, name: name)
+        }
+    }
+
+    func resourcesRead(uri: String) async throws -> String {
+        let result = try await request(method: "resources/read", params: ["uri": uri])
+        return extractResourceText(result)
+    }
+
     func close() {
         lock.withLock { state in
             state.closed = true
@@ -514,6 +648,10 @@ final class MCPHTTPSession: MCPSession, @unchecked Sendable {
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            let challenge = http.value(forHTTPHeaderField: "WWW-Authenticate") ?? ""
+            if !challenge.isEmpty {
+                throw MCPError.needsAuthentication
+            }
             throw MCPError.requestFailed("unauthorized")
         }
         let parsed = try MCPJSON.parseResponse(data)
@@ -564,6 +702,35 @@ final class MCPHTTPSession: MCPSession, @unchecked Sendable {
         return extractToolText(result)
     }
 
+    func promptsList() async throws -> [MCPPromptDescriptor] {
+        let result = try await post(method: "prompts/list", params: [:])
+        guard let prompts = result["prompts"] as? [[String: Any]] else { return [] }
+        return prompts.compactMap { item in
+            guard let name = item["name"] as? String else { return nil }
+            return MCPPromptDescriptor(name: name)
+        }
+    }
+
+    func promptsGet(name: String) async throws -> String {
+        let result = try await post(method: "prompts/get", params: ["name": name])
+        return extractPromptText(result)
+    }
+
+    func resourcesList() async throws -> [MCPResourceDescriptor] {
+        let result = try await post(method: "resources/list", params: [:])
+        guard let resources = result["resources"] as? [[String: Any]] else { return [] }
+        return resources.compactMap { item in
+            guard let uri = item["uri"] as? String else { return nil }
+            let name = item["name"] as? String ?? uri
+            return MCPResourceDescriptor(uri: uri, name: name)
+        }
+    }
+
+    func resourcesRead(uri: String) async throws -> String {
+        let result = try await post(method: "resources/read", params: ["uri": uri])
+        return extractResourceText(result)
+    }
+
     func close() {}
 }
 
@@ -576,6 +743,39 @@ private func extractToolText(_ result: [String: Any]) -> String {
         return item["text"] as? String
     }
     return parts.joined(separator: "\n")
+}
+
+private func extractPromptText(_ result: [String: Any]) -> String {
+    if let messages = result["messages"] as? [[String: Any]] {
+        let parts = messages.compactMap { item -> String? in
+            guard (item["role"] as? String) == "user",
+                  let content = item["content"] as? [String: Any],
+                  (content["type"] as? String) == "text",
+                  let text = content["text"] as? String else { return nil }
+            return text
+        }
+        if !parts.isEmpty {
+            return parts.joined(separator: "\n")
+        }
+    }
+    return extractToolText(result)
+}
+
+private func extractResourceText(_ result: [String: Any]) -> String {
+    if let contents = result["contents"] as? [[String: Any]] {
+        let parts = contents.compactMap { item -> String? in
+            if let text = item["text"] as? String {
+                return text
+            }
+            guard (item["type"] as? String) == "text",
+                  let text = item["text"] as? String else { return nil }
+            return text
+        }
+        if !parts.isEmpty {
+            return parts.joined(separator: "\n")
+        }
+    }
+    return extractToolText(result)
 }
 
 private func jsonValueToAny(_ value: JSONValue) -> Any {

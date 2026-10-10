@@ -232,6 +232,33 @@ public final class HarnessStore: Sendable {
         }
     }
 
+    public func toolMessagesContaining(text: String, sessionIDPrefix: String) throws -> [StoredMessage] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT role, text, reasoning, tool_calls_json, tool_call_id, tool_name
+                FROM messages
+                WHERE session_id LIKE ? AND role = 'tool' AND text LIKE ?
+                ORDER BY ordinal ASC
+                """,
+                arguments: ["\(sessionIDPrefix)%", "%\(text)%"]
+            )
+            return rows.map { row in
+                let toolCallsJSON: String = row["tool_calls_json"]
+                let toolCalls = (try? JSONDecoder().decode([ToolCall].self, from: Data(toolCallsJSON.utf8))) ?? []
+                return StoredMessage(
+                    role: .tool,
+                    text: row["text"],
+                    reasoning: row["reasoning"],
+                    toolCalls: toolCalls,
+                    toolCallID: row["tool_call_id"],
+                    toolName: row["tool_name"]
+                )
+            }
+        }
+    }
+
     public func messages(sessionID: String) throws -> [StoredMessage] {
         try dbQueue.read { db in
             let rows = try Row.fetchAll(

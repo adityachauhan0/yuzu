@@ -189,6 +189,9 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             }
 
             let agent = agentFor(session)
+            if let stepLimit = agent.steps, session.stepCount >= stepLimit {
+                break loop
+            }
             let savedAllows = (try? store.permissionRules(projectPath: session.projectPath)) ?? []
             let materialized = ToolRegistry.materialize(
                 agent: agent,
@@ -420,7 +423,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         materialized: MaterializedTools,
         session: SessionRecord
     ) async -> String {
-        guard let action = PermissionGate.permissionAction(for: call.name) else {
+        guard let action = PermissionGate.permissionAction(for: call.name, arguments: call.arguments) else {
             return materialized.settle(call: call)
         }
 
@@ -462,6 +465,12 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
     public func mcpDisconnect(_ serverName: String) {
         MCPHub.shared.disconnect(serverName: serverName)
+    }
+
+    public func invokeMCPPrompt(serverName: String, name: String) async throws {
+        let text = try await MCPHub.shared.getPromptText(serverName: serverName, name: name)
+        try store.appendMessage(sessionID: sessionID, message: .user(text))
+        await run()
     }
 
     private func requestPermission(
@@ -532,11 +541,47 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     }
 
     private func executeApproved(call: ToolCall, materialized: MaterializedTools) async -> String {
+        if call.name == "read_resource" {
+            guard let uri = stringField(call.arguments, key: "uri") else {
+                return "Error: missing uri"
+            }
+            let text = await MCPHub.shared.readResource(uri: uri)
+            return ToolOutput.project(raw: text, sessionID: materialized.sessionID, callID: call.id)
+        }
+        if call.name == "task" {
+            return await executeTask(call: call, materialized: materialized)
+        }
         if materialized.isMCPTool(call.name) {
             let text = await MCPHub.shared.execute(harnessName: call.name, arguments: call.arguments)
             return ToolOutput.project(raw: text, sessionID: materialized.sessionID, callID: call.id)
         }
         return materialized.executeAfterApproval(call: call)
+    }
+
+    private func executeTask(call: ToolCall, materialized: MaterializedTools) async -> String {
+        guard let agentID = stringField(call.arguments, key: "agent"),
+              let prompt = stringField(call.arguments, key: "prompt") else {
+            return "Error: missing agent or prompt"
+        }
+        guard let childAgent = AgentCatalog.agent(id: agentID), childAgent.allowsSubagent else {
+            return "Error: agent cannot run as subagent"
+        }
+        guard let session = try? store.session(id: sessionID) else {
+            return "Error: session missing"
+        }
+        let result = await SubagentRunner.run(
+            parentSessionID: sessionID,
+            store: store,
+            model: model,
+            agentID: agentID,
+            prompt: prompt,
+            projectPath: session.projectPath,
+            modelIdentifier: session.modelIdentifier,
+            supportsMultipleToolCalls: session.supportsMultipleToolCalls,
+            manualPressed: session.manualPressed,
+            contextLength: session.contextLength
+        )
+        return ToolOutput.project(raw: result, sessionID: materialized.sessionID, callID: call.id)
     }
 
     private func consumeModelTurn(request: TurnRequest, supportsMultiple: Bool) async -> AssistantTurn? {
@@ -546,21 +591,23 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         var assistantStarted = false
 
         do {
-            for try await event in model.complete(request) {
-                switch event {
-                case .text(let chunk):
-                    text += chunk
-                    let message = StoredMessage(role: .assistant, text: text, reasoning: reasoning)
-                    if assistantStarted {
-                        try? store.replaceLastAssistant(sessionID: sessionID, message: message)
-                    } else {
-                        try? store.appendMessage(sessionID: sessionID, message: message)
-                        assistantStarted = true
+            try await ModelTurnCoordinator.shared.withTurn {
+                for try await event in model.complete(request) {
+                    switch event {
+                    case .text(let chunk):
+                        text += chunk
+                        let message = StoredMessage(role: .assistant, text: text, reasoning: reasoning)
+                        if assistantStarted {
+                            try? store.replaceLastAssistant(sessionID: sessionID, message: message)
+                        } else {
+                            try? store.appendMessage(sessionID: sessionID, message: message)
+                            assistantStarted = true
+                        }
+                    case .reasoning(let chunk):
+                        reasoning += chunk
+                    case .finished(let turn):
+                        finished = turn
                     }
-                case .reasoning(let chunk):
-                    reasoning += chunk
-                case .finished(let turn):
-                    finished = turn
                 }
             }
         } catch {
@@ -595,10 +642,6 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         }
 
         return assistant
-    }
-
-    private func agentFor(_ session: SessionRecord) -> Agent {
-        session.agentID == "plan" ? .plan : .build
     }
 
     private func runCompactionIfNeeded(session: inout SessionRecord) async -> Bool {
@@ -661,14 +704,16 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         var text = ""
         var finished: AssistantTurn?
         do {
-            for try await event in model.complete(request) {
-                switch event {
-                case .text(let chunk):
-                    text += chunk
-                case .reasoning:
-                    break
-                case .finished(let turn):
-                    finished = turn
+            try await ModelTurnCoordinator.shared.withTurn {
+                for try await event in model.complete(request) {
+                    switch event {
+                    case .text(let chunk):
+                        text += chunk
+                    case .reasoning:
+                        break
+                    case .finished(let turn):
+                        finished = turn
+                    }
                 }
             }
         } catch {
@@ -677,5 +722,9 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         guard finished != nil else { return nil }
         let summary = text.isEmpty ? (finished?.text ?? "") : text
         return summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : summary
+    }
+
+    private func agentFor(_ session: SessionRecord) -> Agent {
+        AgentCatalog.agent(id: session.agentID) ?? .build
     }
 }

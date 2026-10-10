@@ -61,6 +61,68 @@ def handle(req):
                 },
             }
         )
+    elif method == "prompts/list":
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "prompts": [
+                        {
+                            "name": "hello",
+                            "description": "hello prompt",
+                        }
+                    ]
+                },
+            }
+        )
+    elif method == "prompts/get":
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": {"type": "text", "text": "wave"},
+                        }
+                    ]
+                },
+            }
+        )
+    elif method == "resources/list":
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "resources": [
+                        {
+                            "uri": "file://note",
+                            "name": "note",
+                            "mimeType": "text/plain",
+                        }
+                    ]
+                },
+            }
+        )
+    elif method == "resources/read":
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "contents": [
+                        {
+                            "uri": "file://note",
+                            "mimeType": "text/plain",
+                            "text": "note-body",
+                        }
+                    ]
+                },
+            }
+        )
 
 
 for line in sys.stdin:

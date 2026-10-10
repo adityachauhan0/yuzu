@@ -11,6 +11,9 @@ public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
     /// Number of `complete` calls recorded when each `reset` ran (tests).
     public private(set) var resetWhenRequestCount: [Int] = []
 
+    public private(set) var completeIntervals: [(start: Date, end: Date)] = []
+    private var activeCompleteStart: Date?
+
     public var holdBeforeComplete = false
     public var holdAfterFinished = false
     private var holdWaiters: [CheckedContinuation<Void, Never>] = []
@@ -36,6 +39,7 @@ public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
 
         return AsyncThrowingStream { continuation in
             let task = Task.detached {
+                self.markCompleteStarted()
                 if self.holdBeforeComplete {
                     await self.waitForHoldRelease()
                 }
@@ -50,6 +54,7 @@ public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
                 if self.holdAfterFinished {
                     await self.waitForHoldRelease()
                 }
+                self.markCompleteEnded()
                 continuation.finish()
             }
             continuation.onTermination = { _ in
@@ -82,5 +87,30 @@ public final class ScriptedTurn: ModelTurn, @unchecked Sendable {
             holdWaiters.append(continuation)
             lock.unlock()
         }
+    }
+
+    private func markCompleteStarted() {
+        lock.lock()
+        activeCompleteStart = Date()
+        lock.unlock()
+    }
+
+    private func markCompleteEnded() {
+        lock.lock()
+        if let start = activeCompleteStart {
+            completeIntervals.append((start: start, end: Date()))
+            activeCompleteStart = nil
+        }
+        lock.unlock()
+    }
+
+    public static func intervalsOverlap(_ intervals: [(start: Date, end: Date)]) -> Bool {
+        let sorted = intervals.sorted { $0.start < $1.start }
+        for index in 1..<sorted.count {
+            if sorted[index].start < sorted[index - 1].end {
+                return true
+            }
+        }
+        return false
     }
 }

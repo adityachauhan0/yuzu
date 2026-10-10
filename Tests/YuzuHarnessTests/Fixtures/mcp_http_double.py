@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 BEARER = os.environ.get("MCP_HTTP_BEARER", "test-token")
 AUTH_TRACE = os.environ.get("MCP_HTTP_AUTH_TRACE")
+OAUTH_CHALLENGE = os.environ.get("MCP_HTTP_OAUTH_CHALLENGE")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -14,6 +15,11 @@ class Handler(BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         if auth != f"Bearer {BEARER}":
             self.send_response(401)
+            if OAUTH_CHALLENGE:
+                self.send_header(
+                    "WWW-Authenticate",
+                    'Bearer realm="mcp", authorization_uri="http://127.0.0.1/oauth"',
+                )
             self.end_headers()
             return
         if AUTH_TRACE:

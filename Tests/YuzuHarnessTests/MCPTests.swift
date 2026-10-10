@@ -235,4 +235,121 @@ struct MCPTests {
         let authLog = try String(contentsOf: authTrace, encoding: .utf8)
         #expect(authLog.contains("Bearer \(bearer)"))
     }
+
+    @Test func M6_promptBecomesUserMessage() async throws {
+        MCPHub.shared.resetForTests()
+        let project = try makeWorkspace()
+        defer { MCPHub.shared.resetForTests() }
+
+        try await MCPHub.shared.connect(config: stdioConfig(), projectPath: project.path)
+        #expect(MCPHub.shared.promptNames(serverName: "test").contains("hello"))
+
+        let script = ScriptedTurn(turns: [AssistantTurn(text: "ack")])
+        let store = try HarnessStore(path: project.appendingPathComponent("session.sqlite").path)
+        let sessionID = "session-mcp-prompt"
+        try store.insertSession(
+            SessionRecord(
+                id: sessionID,
+                projectPath: project.path,
+                agentID: "build",
+                modelIdentifier: "test",
+                epochID: "epoch-1",
+                stepCount: 0,
+                supportsMultipleToolCalls: true,
+                status: .idle,
+                modelMessageCursor: 0
+            )
+        )
+        let runner = SessionRunner(sessionID: sessionID, store: store, model: script)
+
+        try await runner.invokeMCPPrompt(serverName: "test", name: "hello")
+
+        let users = try store.messages(sessionID: sessionID).filter { $0.role == .user }
+        #expect(users.contains { $0.text == "wave" })
+    }
+
+    @Test func M7_readResource() async throws {
+        MCPHub.shared.resetForTests()
+        let project = try makeWorkspace()
+        defer { MCPHub.shared.resetForTests() }
+
+        let without = ToolRegistry.materialize(
+            agent: .build,
+            projectPath: project.path,
+            sessionID: "s",
+            savedAllows: [],
+            manualPressed: true
+        )
+        #expect(!without.allowedNames.contains("read_resource"))
+
+        try await MCPHub.shared.connect(config: stdioConfig(), projectPath: project.path)
+
+        let withServer = ToolRegistry.materialize(
+            agent: .build,
+            projectPath: project.path,
+            sessionID: "s",
+            savedAllows: [],
+            manualPressed: true
+        )
+        #expect(withServer.allowedNames.contains("read_resource"))
+
+        let readCall = ToolCall(
+            id: "res-1",
+            name: "read_resource",
+            arguments: .object(["uri": .string("file://note")])
+        )
+        let (store, runner, _, sessionID) = try makeRunner(
+            project: project,
+            turns: [AssistantTurn(text: "", toolCalls: [readCall]), AssistantTurn(text: "done")]
+        )
+        try store.insertPermissionRule(
+            projectPath: project.path,
+            rule: PermissionRule(action: "mcp:test", resource: "*", effect: .allow)
+        )
+        runner.materializeOnly = ["read_resource"]
+
+        await runner.prompt("go", delivery: .queue)
+        await runner.run()
+
+        let tool = try #require(
+            try store.messages(sessionID: sessionID).first { $0.role == .tool && $0.toolName == "read_resource" }
+        )
+        #expect(tool.text.contains("note-body"))
+    }
+
+    @Test func M8_oauthNeedsAuthStatus() async throws {
+        MCPHub.shared.resetForTests()
+        let project = try makeWorkspace()
+        defer { MCPHub.shared.resetForTests() }
+
+        let port = 28_766
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [fixturesURL("mcp_http_double.py").path]
+        var env = ProcessInfo.processInfo.environment
+        env["MCP_HTTP_PORT"] = "\(port)"
+        env["MCP_HTTP_OAUTH_CHALLENGE"] = "1"
+        process.environment = env
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        defer { process.terminate() }
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        let url = "http://127.0.0.1:\(port)/"
+        try await MCPHub.shared.connect(
+            config: MCPServerConfig(name: "oauth", transport: .http(url: url, headers: [:])),
+            projectPath: project.path
+        )
+
+        #expect(MCPHub.shared.status(serverName: "oauth") == .needsAuth)
+        let materialized = ToolRegistry.materialize(
+            agent: .build,
+            projectPath: project.path,
+            sessionID: "s",
+            savedAllows: [],
+            manualPressed: true
+        )
+        #expect(materialized.definitions.allSatisfy { !$0.name.hasPrefix("mcp_") })
+    }
 }
