@@ -1,0 +1,24 @@
+{
+  "originHash" : "1418bad216288a2b72fa0a2a49c50159390690856052c5423179f33890a0cd35",
+  "pins" : [
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+        "version" : "1.8.2"
+      }
+    },
+    {
+      "identity" : "uzu",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/trymirai/uzu.git",
+      "state" : {
+        "revision" : "97027b50660891727b920a01276fab2dd48706aa",
+        "version" : "0.6.2"
+      }
+    }
+  ],
+  "version" : 3
+}
