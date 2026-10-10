@@ -153,7 +153,20 @@ final class AppModel: ObservableObject {
     var hasProjects: Bool { false }
     var hasArtifacts: Bool { false }
     var hasPinnedItems: Bool { false }
-    var recentTaskTitles: [String] { [] }
+    var recentTaskTitles: [String] {
+        guard shouldShowTaskInSidebar else { return [] }
+        return [taskSidebarTitle]
+    }
+
+    var taskSidebarTitle: String { "Task" }
+
+    private var shouldShowTaskInSidebar: Bool {
+        if showTaskThread, coworkDestination == .task {
+            return true
+        }
+        let messages = (try? store.userMessages(sessionID: sessionID)) ?? []
+        return !messages.isEmpty
+    }
     var totalTokenCount: Int { 0 }
 
     var modelDisplayName: String {
@@ -192,7 +205,15 @@ final class AppModel: ObservableObject {
             showTaskThread = true
         case .settingsCode:
             openSettings(tab: .code)
+        case .settingsGeneral:
+            openSettings(tab: .general)
         }
+    }
+
+    func applyLaunchRouteIfNeeded() {
+        guard let raw = ProcessInfo.processInfo.environment["YUZU_UI_ROUTE"] else { return }
+        guard let route = UITestRoute(launchName: raw) else { return }
+        applyTestRoute(route)
     }
 }
 
@@ -205,4 +226,20 @@ enum UITestRoute: CaseIterable, Sendable {
     case coworkCustomize
     case coworkTask
     case settingsCode
+    case settingsGeneral
+
+    init?(launchName: String) {
+        switch launchName {
+        case "code": self = .code
+        case "coworkNew": self = .coworkNew
+        case "coworkProjects": self = .coworkProjects
+        case "coworkArtifacts": self = .coworkArtifacts
+        case "coworkScheduled": self = .coworkScheduled
+        case "coworkCustomize": self = .coworkCustomize
+        case "coworkTask": self = .coworkTask
+        case "settingsCode": self = .settingsCode
+        case "settingsGeneral": self = .settingsGeneral
+        default: return nil
+        }
+    }
 }

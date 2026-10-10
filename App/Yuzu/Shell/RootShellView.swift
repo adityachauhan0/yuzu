@@ -127,6 +127,11 @@ struct EmptyPanelView: View {
 struct ScheduledEmptyView: View {
     let colors: ThemeColors
     @EnvironmentObject private var model: AppModel
+    @State private var searchVisible = false
+    @State private var searchQuery = ""
+    @State private var sortLabel = "Next run"
+    @State private var sortMenuOpen = false
+    @State private var newMenuOpen = false
 
     private let examples: [(title: String, description: String, time: String)] = [
         (
@@ -164,25 +169,12 @@ struct ScheduledEmptyView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
+                HStack(alignment: .top) {
                     Text("Scheduled tasks")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.custom("Georgia", size: 32))
                         .foregroundStyle(colors.text)
                     Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(colors.muted)
-                        Text("Sort by Next run")
-                            .font(.system(size: 14))
-                            .foregroundStyle(colors.muted)
-                        Text("New task")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(colors.text)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(colors.selected)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
+                    scheduledControls
                 }
 
                 Text("Run tasks on a schedule or whenever you need them. Type /schedule in any existing task to set one up.")
@@ -259,6 +251,133 @@ struct ScheduledEmptyView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var scheduledControls: some View {
+        ZStack(alignment: .topTrailing) {
+            HStack(spacing: 10) {
+                Button {
+                    searchVisible.toggle()
+                    if !searchVisible { searchQuery = "" }
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16))
+                        .frame(width: 35, height: 37)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .background(searchVisible ? colors.selected : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .accessibilityID("scheduled-search-button")
+
+                Button {
+                    sortMenuOpen.toggle()
+                    newMenuOpen = false
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("Sort by")
+                        Text(sortLabel)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                    }
+                    .font(.system(size: 16))
+                    .foregroundStyle(sortMenuOpen ? colors.text : colors.muted)
+                    .padding(.horizontal, 13)
+                    .frame(minWidth: 182, minHeight: 38)
+                    .background(colors.selected)
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                }
+                .buttonStyle(.plain)
+                .accessibilityID("scheduled-sort-button")
+
+                Button {
+                    newMenuOpen.toggle()
+                    sortMenuOpen = false
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("New task")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                    .padding(.horizontal, 13)
+                    .frame(minWidth: 126, minHeight: 38)
+                    .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                }
+                .buttonStyle(.plain)
+                .accessibilityID("scheduled-new-button")
+            }
+            .padding(.top, 3)
+
+            if searchVisible {
+                TextField("Search scheduled tasks", text: $searchQuery)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(width: 340)
+                    .background(colors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(colors.line, lineWidth: 1))
+                    .padding(.top, 45)
+                    .accessibilityID("scheduled-search-field")
+            }
+
+            if sortMenuOpen {
+                scheduledPopover {
+                    sortOption("Next run")
+                    sortOption("Name")
+                }
+                .padding(.top, 45)
+                .padding(.trailing, 137)
+            }
+
+            if newMenuOpen {
+                scheduledPopover {
+                    Button("Create scheduled task") {
+                        newMenuOpen = false
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityID("create-schedule-option")
+                    Button("New task") {
+                        newMenuOpen = false
+                        model.selectCowork(.new)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityID("new-regular-task-option")
+                }
+                .padding(.top, 45)
+            }
+        }
+    }
+
+    private func sortOption(_ label: String) -> some View {
+        Button {
+            sortLabel = label
+            sortMenuOpen = false
+        } label: {
+            Text(label)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(colors.text)
+        .accessibilityIdentifier("scheduled-sort-\(label)")
+    }
+
+    private func scheduledPopover<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            content()
+        }
+        .padding(6)
+        .frame(minWidth: 200)
+        .background(colors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
     }
 
     private func scheduleExample(_ example: (title: String, description: String, time: String)) -> some View {

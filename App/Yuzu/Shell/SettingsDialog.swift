@@ -69,6 +69,7 @@ struct SettingsDialog: View {
                 case .general:
                     Text("General")
                         .font(.system(size: 20, weight: .semibold))
+                        .accessibilityID("settings-general-heading")
                     themePicker
                 case .developer:
                     Text("Developer")

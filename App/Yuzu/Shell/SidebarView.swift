@@ -32,8 +32,20 @@ struct SidebarView: View {
 
             Spacer()
 
-            Button {
-                model.openSettings()
+            Menu {
+                Text("Yuzu Beta Version 0.0.1")
+                Button("Settings") {
+                    model.openSettings()
+                }
+                .accessibilityIdentifier("account-menu-settings")
+                Button("Language") {}
+                Button("Inference configuration") {
+                    model.openSettings(tab: .developer)
+                }
+                Divider()
+                Button("View changelog") {}
+                Button("Learn more") {}
+                Button("Sign out") {}
             } label: {
                 HStack(spacing: 10) {
                     if let logo = HandoffImage.coworkLogo(dark: model.theme == .dark) {
@@ -49,8 +61,10 @@ struct SidebarView: View {
                 .foregroundStyle(colors.muted)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .menuStyle(.borderlessButton)
+            .accessibilityID("account-button")
         }
         .background(colors.side)
         .overlay(alignment: .trailing) {
@@ -140,6 +154,7 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(colors.muted)
+                .accessibilityID("sidebar-task")
             }
         }
     }

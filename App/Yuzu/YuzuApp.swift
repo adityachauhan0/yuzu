@@ -15,6 +15,15 @@ struct YuzuApp: App {
             RootShellView()
                 .environmentObject(model)
                 .frame(minWidth: 900, minHeight: 600)
+                .onAppear { model.applyLaunchRouteIfNeeded() }
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings") {
+                    model.openSettings()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
         .defaultSize(width: 1440, height: 900)
     }
