@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import YuzuHarness
 
+@Suite(.readsMCPHub)
 struct CompactionTests {
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import YuzuHarness
 
 struct SidebarView: View {
     @EnvironmentObject private var model: AppModel
@@ -25,10 +26,6 @@ struct SidebarView: View {
             .padding(.horizontal, 10)
             .accessibilityLabel("Primary")
 
-            if model.sidebarSearchOpen {
-                searchResults
-            }
-
             if model.hasPinnedItems {
                 pinnedSection
             }
@@ -52,7 +49,7 @@ struct SidebarView: View {
                     .accessibilityIdentifier("account-language-english")
                 }
                 Button("Inference configuration") {
-                    model.openSettings(tab: .developer)
+                    model.openSettings(tab: .developer, anchor: .inference)
                 }
                 Divider()
                 Button("View changelog") {
@@ -100,11 +97,9 @@ struct SidebarView: View {
 
     private var windowBar: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 9) {
-                Circle().fill(Color(red: 1, green: 0.37, blue: 0.34)).frame(width: 14, height: 14)
-                Circle().fill(Color(red: 1, green: 0.74, blue: 0.18)).frame(width: 14, height: 14)
-                Circle().fill(Color(red: 0.16, green: 0.78, blue: 0.25)).frame(width: 14, height: 14)
-            }
+            // The window's own traffic lights sit here; see `WindowChrome`.
+            Color.clear
+                .frame(width: WindowChrome.trafficLightsWidth, height: 14)
             Spacer()
             Button {
                 model.sidebarCollapsed.toggle()
@@ -118,8 +113,7 @@ struct SidebarView: View {
             .accessibilityID("sidebar-toggle")
 
             Button {
-                model.sidebarSearchOpen.toggle()
-                if !model.sidebarSearchOpen { model.sidebarSearch = "" }
+                model.searchOpen = true
             } label: {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14))
@@ -133,68 +127,90 @@ struct SidebarView: View {
         .frame(height: 54)
     }
 
-    private var searchResults: some View {
-        let query = model.sidebarSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let pages = CoworkDestination.allCases.filter { $0 != .task && (query.isEmpty || $0.rawValue.lowercased().contains(query)) }
-        let tasks = model.recentTaskTitles.filter { query.isEmpty || $0.lowercased().contains(query) }
-        return VStack(alignment: .leading, spacing: 4) {
-            TextField("Search", text: Binding(
-                get: { model.sidebarSearch },
-                set: { model.sidebarSearch = $0 }
-            ))
-                .textFieldStyle(.plain)
-                .font(.system(size: 14))
-                .padding(8)
-                .accessibilityID("sidebar-search-field")
-            ForEach(pages, id: \.self) { page in
-                Button(page.rawValue) {
-                    model.selectCowork(page)
-                    model.sidebarSearchOpen = false
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundStyle(colors.text)
-            }
-            ForEach(tasks, id: \.self) { title in
-                Button(title) {
-                    model.selectCowork(.task)
-                    model.sidebarSearchOpen = false
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundStyle(colors.muted)
-            }
-        }
-        .padding(.horizontal, 12)
-    }
-
     private var pinnedSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let pinned = model.pinnedSessions
+        let projects = pinned.reduce(into: [String]()) { list, task in
+            if !list.contains(task.projectPath) { list.append(task.projectPath) }
+        }
+        return VStack(alignment: .leading, spacing: 0) {
             Text("Pinned")
                 .font(.system(size: 14))
                 .foregroundStyle(colors.dim)
-                .padding(.horizontal, 18)
-            Button(model.taskTitle) {
-                model.selectCowork(.task)
+                .padding(.bottom, 8)
+            ForEach(projects, id: \.self) { project in
+                Button {
+                    model.selectCowork(.projects)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "folder").font(.system(size: 15)).frame(width: 17)
+                        Text(projectLabel(project))
+                            .font(YuzuFonts.interface(model.interfaceFont, size: 15))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(3)
+                    .frame(minHeight: 31)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+                .accessibilityID("pinned-project")
+                ForEach(pinned.filter { $0.projectPath == project }) { task in
+                    taskButton(task, id: "pinned-task")
+                        .overlay(alignment: .leading) {
+                            Rectangle().fill(colors.selected).frame(width: 1)
+                        }
+                        .padding(.leading, 15)
+                }
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 15))
-            .foregroundStyle(colors.muted)
-            .padding(.horizontal, 18)
-            .accessibilityID("pinned-task")
         }
+        .padding(.horizontal, 18)
         .padding(.top, 27)
     }
 
+    private func projectLabel(_ path: String) -> String {
+        path == model.defaultWorkspacePath ? "No project" : URL(fileURLWithPath: path).lastPathComponent
+    }
+
+    private func taskButton(_ task: SessionSummary, id: String) -> some View {
+        let active = model.workspaceMode == .cowork && model.coworkDestination == .task && model.sessionID == task.id
+        return Button {
+            model.openTask(task.id)
+        } label: {
+            HStack(spacing: 17) {
+                Circle().fill(active ? colors.accent : colors.muted).frame(width: 7, height: 7)
+                Text(task.displayTitle)
+                    .font(YuzuFonts.interface(model.interfaceFont, size: 15))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 20)
+            .padding(.trailing, 10)
+            .padding(.vertical, 3)
+            .frame(minHeight: 31)
+            .background(active ? colors.selected : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .foregroundStyle(active ? colors.text : colors.muted)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(task.displayTitle)
+        .accessibilityID(id, label: task.displayTitle)
+    }
+
     private var tasksSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text("Tasks")
                     .font(.system(size: 14))
                     .foregroundStyle(colors.dim)
                 Spacer()
                 Button {
-                    model.openSettings()
+                    if model.taskSessions.isEmpty {
+                        model.showToast("Recent tasks appear here after you send one.")
+                    } else {
+                        model.openSettings(tab: .code)
+                    }
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 14))
@@ -207,25 +223,16 @@ struct SidebarView: View {
             .padding(.horizontal, 18)
             .padding(.top, 27)
 
-            ForEach(model.recentTaskTitles, id: \.self) { title in
-                Button {
-                    model.selectCowork(.task)
-                } label: {
-                    HStack(spacing: 17) {
-                        Circle().fill(colors.muted).frame(width: 7, height: 7)
-                        Text(title)
-                            .font(YuzuFonts.interface(model.interfaceFont, size: 15))
-                            .lineLimit(1)
-                        Spacer()
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(model.taskSessions) { task in
+                        taskButton(task, id: "sidebar-task")
                     }
-                    .padding(.leading, 33)
-                    .padding(.trailing, 10)
-                    .padding(.vertical, 3)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.muted)
-                .accessibilityID("sidebar-task")
+                .padding(.leading, 13)
+                .padding(.trailing, 10)
             }
+            .scrollIndicators(.never)
         }
     }
 
@@ -285,7 +292,7 @@ struct ModeSwitch: View {
             if mode == .code {
                 model.selectCode()
             } else {
-                model.selectCowork(model.coworkDestination == .task ? .new : model.coworkDestination)
+                model.selectCowork(model.coworkDestination)
             }
         } label: {
             Text(mode.rawValue)

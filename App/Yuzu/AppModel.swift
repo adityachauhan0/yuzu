@@ -6,11 +6,6 @@ import UserNotifications
 import YuzuHarness
 import YuzuModel
 
-struct UsageSample: Codable, Equatable, Sendable {
-    var at: Date
-    var modelName: String
-}
-
 struct UsageMetrics: Equatable {
     var sessions: Int
     var messages: Int
@@ -32,6 +27,11 @@ enum CoworkDestination: String, Sendable, CaseIterable {
     case scheduled = "Scheduled"
     case customize = "Customize"
     case task = "Task"
+}
+
+enum SettingsAnchor: Hashable {
+    case mcpConfig
+    case inference
 }
 
 enum SettingsTab: String, Sendable, CaseIterable {
@@ -60,7 +60,7 @@ final class AppModel: ObservableObject {
 
     @Published var workspaceMode: WorkspaceMode = .code
     @Published var coworkDestination: CoworkDestination = .new
-    @Published var theme: AppTheme = .dark
+    @Published var theme: AppTheme = .dark { didSet { saveAppearance() } }
     @Published var settingsPresented = false
     @Published var settingsTab: SettingsTab = .general
     @Published var manualPressed = true
@@ -74,25 +74,39 @@ final class AppModel: ObservableObject {
     @Published var coworkProjectName = "No project"
     @Published var toastMessage: String?
     @Published var downloadStatus: String?
-    @Published var sidebarSearchOpen = false
-    @Published var sidebarSearch = ""
+    @Published var searchOpen = false
+    @Published var requestedSkill: String?
+    let escapeStack = EscapeStack()
     @Published var coworkSeed: String?
     @Published var installedModelName: String?
+    private(set) var installedModelIdentifier: String?
     @Published var speedLabel = "—"
     @Published var scheduledTasks: [ScheduledTaskRecord] = []
     @Published var workDescription = "Select"
+    @Published var settingsAnchor: SettingsAnchor?
+    @Published private(set) var avatarRevision = 0
+
+    var avatarFileURL: URL {
+        supportDirectory.appendingPathComponent("avatar.png")
+    }
+
+    func saveAvatar(png data: Data) {
+        try? data.write(to: avatarFileURL, options: .atomic)
+        avatarRevision += 1
+    }
     @Published var yuzuInstructions = ""
-    @Published var chatFont = "Serif"
-    @Published var motionSetting = "System"
+    @Published var chatFont = "Source Serif" { didSet { saveAppearance() } }
+    @Published var motionSetting = "System" { didSet { saveAppearance() } }
     @Published var responseCompletions = false
-    @Published var codeFont = ""
-    @Published var interfaceFont = "System"
-    @Published var transcriptSize = "Medium"
-    @Published var transcriptWidth = "Narrow"
-    @Published var transcriptView = "Normal"
+    @Published var codeFont = "" { didSet { saveAppearance() } }
+    @Published var interfaceFont = "Inter" { didSet { saveAppearance() } }
+    @Published var transcriptSize = "Medium" { didSet { saveAppearance() } }
+    @Published var transcriptWidth = "Narrow" { didSet { saveAppearance() } }
+    @Published var transcriptView = "Normal" { didSet { saveAppearance() } }
+    @Published var lightCodeTheme = CodeTheme.githubLight.rawValue { didSet { saveAppearance() } }
+    @Published var darkCodeTheme = CodeTheme.githubDark.rawValue { didSet { saveAppearance() } }
     @Published var memoryEnabled = true
     @Published var memories: [String] = []
-    @Published var usageSamples: [UsageSample] = []
     @Published var usagePeriod: CodeUsagePeriod = .all
     @Published var scheduleComposerPrompt = ""
     @Published var scheduleComposerTime = ""
@@ -103,19 +117,26 @@ final class AppModel: ObservableObject {
     @Published var mcpServerLines: [String] = []
     @Published var interfaceLanguage = "English"
     @Published var changelogPresented = false
-    @Published var taskTitle = "Task"
-    @Published var taskPinned = false
+    @Published private(set) var sessions: [SessionSummary] = []
+    @Published var codeTaskPreview: String?
     @Published var pendingPermission: PermissionRequestRecord?
     @Published var transcript: [StoredMessage] = []
+    @Published var todos: [TodoItem] = []
     @Published var threadDraft = ""
 
     let store: HarnessStore
+    private var restoringAppearance = false
     private var toastDismissTask: Task<Void, Never>?
     private var scheduleWatch: Task<Void, Never>?
     private var prepareTask: Task<Void, Never>?
     private var awakeActivity: NSObjectProtocol?
-    let runner: SessionRunner
-    let sessionID: String
+    private(set) var runner: SessionRunner
+    @Published private(set) var sessionID: String
+    private var drain: (sessionID: String, task: Task<Void, Never>)?
+    /// The one engine every session's runner shares.
+    private var sharedTurn: any ModelTurn
+    /// The folder the next new task opens in, chosen with Select folder… or a project menu.
+    private(set) var nextProjectPath: String?
     let supportDirectory: URL
     /// Tests and screenshot launches may answer with the stand-in. A normal launch may not.
     let allowsScriptedReplies: Bool
@@ -123,13 +144,14 @@ final class AppModel: ObservableObject {
 
     private init(
         store: HarnessStore,
-        runner: SessionRunner,
+        model: any ModelTurn,
         sessionID: String,
         supportDirectory: URL,
         allowsScriptedReplies: Bool
     ) {
         self.store = store
-        self.runner = runner
+        self.sharedTurn = model
+        self.runner = SessionRunner(sessionID: sessionID, store: store, model: model)
         self.sessionID = sessionID
         self.supportDirectory = supportDirectory
         self.allowsScriptedReplies = allowsScriptedReplies
@@ -147,29 +169,32 @@ final class AppModel: ObservableObject {
         try FileManager.default.createDirectory(at: sessionDirectory, withIntermediateDirectories: true)
         let dbURL = sessionDirectory.appendingPathComponent("yuzu.sqlite")
         let store = try HarnessStore(path: dbURL.path)
-        let sessionID = "main"
         let project = sessionDirectory.appendingPathComponent("workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
-        let session = SessionRecord(
-            id: sessionID,
-            projectPath: project.path,
-            agentID: "build",
-            modelIdentifier: "pending",
-            epochID: "epoch-1",
-            stepCount: 0,
-            supportsMultipleToolCalls: true,
-            status: SessionStatus.idle,
-            modelMessageCursor: 0,
-            manualPressed: true
-        )
-        if try store.session(id: sessionID) == nil {
-            try store.insertSession(session)
+        let sessionID: String
+        if let latest = try store.sessionSummaries().first {
+            sessionID = latest.id
+        } else {
+            sessionID = "main"
+            try store.insertSession(
+                SessionRecord(
+                    id: sessionID,
+                    projectPath: project.path,
+                    agentID: "build",
+                    modelIdentifier: "pending",
+                    epochID: "epoch-1",
+                    stepCount: 0,
+                    supportsMultipleToolCalls: true,
+                    status: SessionStatus.idle,
+                    modelMessageCursor: 0,
+                    manualPressed: true
+                )
+            )
         }
         let model = ScriptedTurn(turns: [AssistantTurn(text: "")])
-        let runner = SessionRunner(sessionID: sessionID, store: store, model: model)
         return AppModel(
             store: store,
-            runner: runner,
+            model: model,
             sessionID: sessionID,
             supportDirectory: sessionDirectory,
             allowsScriptedReplies: allowsScriptedReplies
@@ -194,9 +219,102 @@ final class AppModel: ObservableObject {
         workspaceMode = .code
     }
 
-    func openSettings(tab: SettingsTab = .general) {
+    /// The handoff's Escape order: open popovers and dialogs, then Settings, the changelog,
+    /// search, and last the task inspector. `false` lets the key through.
+    func handleEscape() -> Bool {
+        if escapeStack.closeTop() { return true }
+        if settingsPresented {
+            settingsPresented = false
+            return true
+        }
+        if changelogPresented {
+            changelogPresented = false
+            return true
+        }
+        if searchOpen {
+            searchOpen = false
+            return true
+        }
+        if workspaceMode == .cowork, coworkDestination == .task, inspectorOpen {
+            inspectorOpen = false
+            return true
+        }
+        return false
+    }
+
+    struct SearchResult: Identifiable {
+        let id: String
+        let label: String
+        let open: () -> Void
+    }
+
+    /// Pages, task titles, skill names and Settings tabs whose label contains the query; at most ten.
+    func searchResults(_ query: String) -> [SearchResult] {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var results: [SearchResult] = []
+        for page in CoworkDestination.allCases where page != .task {
+            results.append(SearchResult(id: "page-\(page.rawValue)", label: page.rawValue) { [weak self] in
+                self?.selectCowork(page)
+            })
+        }
+        results.append(SearchResult(id: "page-Code", label: "Code") { [weak self] in self?.selectCode() })
+        for task in taskSessions {
+            results.append(SearchResult(id: "task-\(task.id)", label: task.displayTitle) { [weak self] in
+                self?.openTask(task.id)
+            })
+        }
+        for skill in SkillCatalog.discover(projectPath: workspaceProjectPath) {
+            results.append(SearchResult(id: "skill-\(skill.name)", label: skill.name) { [weak self] in
+                self?.selectCowork(.customize)
+                self?.requestedSkill = skill.name
+            })
+        }
+        for tab in SettingsTab.allCases {
+            results.append(SearchResult(id: "settings-\(tab.rawValue)", label: "Settings › \(tab.rawValue)") { [weak self] in
+                self?.openSettings(tab: tab)
+            })
+        }
+        return Array(results.filter { term.isEmpty || $0.label.lowercased().contains(term) }.prefix(10))
+    }
+
+    func openSettings(tab: SettingsTab = .general, anchor: SettingsAnchor? = nil) {
         settingsTab = tab
+        settingsAnchor = anchor
         settingsPresented = true
+    }
+
+    var logURL: URL {
+        supportDirectory.appendingPathComponent("logs", isDirectory: true).appendingPathComponent("yuzu.log")
+    }
+
+    func log(_ line: String) {
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let data = Data("\(stamp) \(line)\n".utf8)
+        let url = logURL
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: url)
+        }
+    }
+
+    /// Reveals the log in Finder, creating it first so there is always a file to select.
+    func openLogs() {
+        if !FileManager.default.fileExists(atPath: logURL.path) {
+            log("log opened")
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([logURL])
+    }
+
+    func saveWorkDescription() {
+        try? workDescription.write(
+            to: supportDirectory.appendingPathComponent("work-description.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
     }
 
     func toggleManual() async {
@@ -204,7 +322,8 @@ final class AppModel: ObservableObject {
         await runner.setManualPressed(manualPressed)
     }
 
-    func sendPrompt(_ text: String) async {
+    /// `newTask` starts a fresh session (Code home, Cowork New). The thread composer continues the open one.
+    func sendPrompt(_ text: String, newTask: Bool = false) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let admitted = await admitComposerCommand(trimmed)
@@ -216,40 +335,176 @@ final class AppModel: ObservableObject {
             showToast("Could not download a model")
             return
         }
+        if newTask {
+            beginTask()
+            if workspaceMode == .cowork {
+                selectCowork(.task)
+            } else {
+                codeTaskPreview = trimmed
+            }
+        }
+        let runner = self.runner
+        let target = sessionID
+        if let drain, drain.sessionID != target {
+            await drain.task.value
+        }
         runner.requestedReasoningEffort = reasoningEffort
         turnRunning = true
         defer { turnRunning = false }
         let started = Date()
-        let tokensBefore = totalTokenCount
-        _ = try? store.appendInbox(sessionID: sessionID, text: admitted, delivery: .steer)
+        let tokensBefore = outputTokens(sessionID: target)
+        _ = try? store.appendInbox(sessionID: target, text: admitted, delivery: .steer)
+        reloadSessions()
         let finished = OSAllocatedUnfairLock(initialState: false)
         let runTask = Task {
             await runner.run()
             finished.withLock { $0 = true }
         }
+        drain = (target, runTask)
         while !Task.isCancelled {
             reloadTranscript()
             refreshPendingPermission()
-            let done = finished.withLock { $0 }
-            if pendingPermission == nil, done {
+            let waiting = (try? store.pendingPermissionRequests(sessionID: target))?.isEmpty == false
+            if !waiting, finished.withLock({ $0 }) {
                 break
             }
             try? await Task.sleep(for: .milliseconds(50))
         }
         await runTask.value
+        if drain?.sessionID == target {
+            drain = nil
+        }
         reloadTranscript()
-        let added = totalTokenCount - tokensBefore
+        reloadSessions()
+        let added = outputTokens(sessionID: target) - tokensBefore
         let elapsed = Date().timeIntervalSince(started)
         if added > 0, elapsed >= 0.5 {
             speedLabel = "\(Int((Double(added) / elapsed).rounded())) tok/s"
         }
-        if workspaceMode == .cowork {
+        log("turn finished session=\(target) tokens=\(added) seconds=\(String(format: "%.1f", elapsed))")
+        if workspaceMode == .cowork, sessionID == target {
             showTaskThread = true
             coworkDestination = .task
         }
         recordMemory(trimmed)
-        noteUsage()
         notifyResponseFinished()
+    }
+
+    private func outputTokens(sessionID: String) -> Int {
+        ((try? store.messages(sessionID: sessionID)) ?? []).reduce(0) { $0 + ($1.outputTokens ?? 0) }
+    }
+
+    func reloadSessions() {
+        sessions = (try? store.sessionSummaries()) ?? []
+    }
+
+    /// Tasks are sessions that have a message. An empty session is the one the next send fills.
+    var taskSessions: [SessionSummary] {
+        sessions.filter { $0.messageCount > 0 || $0.id == sessionID && showTaskThread && coworkDestination == .task }
+    }
+
+    var pinnedSessions: [SessionSummary] {
+        taskSessions.filter(\.pinned)
+    }
+
+    private var currentSummary: SessionSummary? {
+        sessions.first { $0.id == sessionID }
+    }
+
+    var taskTitle: String { currentSummary?.displayTitle ?? "Task" }
+    var taskPinned: Bool { currentSummary?.pinned ?? false }
+
+    func renameCurrentTask(_ title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? store.setSessionTitle(id: sessionID, title: trimmed.isEmpty ? nil : trimmed)
+        reloadSessions()
+    }
+
+    func togglePinCurrentTask() {
+        try? store.setSessionPinned(id: sessionID, pinned: !taskPinned)
+        reloadSessions()
+    }
+
+    /// Reuses the open session when it is still empty, otherwise opens a new one in the chosen project.
+    func beginTask() {
+        let current = try? store.session(id: sessionID)
+        let empty = ((try? store.messages(sessionID: sessionID)) ?? []).isEmpty
+            && ((try? store.inboxRows(sessionID: sessionID)) ?? []).isEmpty
+        let project = nextProjectPath ?? defaultWorkspacePath
+        if empty, var current {
+            if current.projectPath != project {
+                current.projectPath = project
+                try? store.updateSession(current)
+            }
+            return
+        }
+        let id = UUID().uuidString
+        let record = SessionRecord(
+            id: id,
+            projectPath: project,
+            agentID: "build",
+            modelIdentifier: installedModelIdentifier ?? current?.modelIdentifier ?? "pending",
+            epochID: UUID().uuidString,
+            stepCount: 0,
+            supportsMultipleToolCalls: true,
+            status: .idle,
+            modelMessageCursor: 0,
+            manualPressed: manualPressed
+        )
+        guard (try? store.insertSession(record)) != nil else { return }
+        switchSession(to: id)
+    }
+
+    /// Swaps the engine for every session in the window, the open one and any opened later.
+    func useModel(_ turn: any ModelTurn) {
+        sharedTurn = turn
+        runner.useModel(turn)
+    }
+
+    func openTask(_ id: String) {
+        if id != sessionID {
+            switchSession(to: id)
+        }
+        selectCowork(.task)
+    }
+
+    func deleteCurrentTask() {
+        let doomed = sessionID
+        if let other = sessions.first(where: { $0.id != doomed && $0.messageCount > 0 }) {
+            switchSession(to: other.id)
+        } else {
+            beginTaskReplacing(doomed)
+        }
+        try? store.deleteSession(id: doomed)
+        reloadSessions()
+        selectCowork(.new)
+    }
+
+    private func beginTaskReplacing(_ id: String) {
+        let project = (try? store.session(id: id)?.projectPath) ?? workspaceProjectPath
+        let fresh = UUID().uuidString
+        try? store.insertSession(
+            SessionRecord(
+                id: fresh, projectPath: project, agentID: "build",
+                modelIdentifier: (try? store.session(id: id)?.modelIdentifier) ?? "pending",
+                epochID: UUID().uuidString, stepCount: 0, supportsMultipleToolCalls: true,
+                status: .idle, modelMessageCursor: 0, manualPressed: manualPressed
+            )
+        )
+        switchSession(to: fresh)
+    }
+
+    private func switchSession(to id: String) {
+        let next = SessionRunner(sessionID: id, store: store, model: sharedTurn)
+        configure(next)
+        runner = next
+        sessionID = id
+        if let session = try? store.session(id: id) {
+            manualPressed = session.manualPressed
+        }
+        reloadTranscript()
+        refreshPendingPermission()
+        reloadSessions()
     }
 
     private var scriptedRepliesAllowed: Bool {
@@ -261,57 +516,93 @@ final class AppModel: ObservableObject {
         blockScriptedRepliesForTest = true
     }
 
-    func noteUsage() {
-        usageSamples.append(UsageSample(at: Date(), modelName: installedModelName ?? "local"))
-        let url = supportDirectory.appendingPathComponent("usage.json")
-        if let data = try? JSONEncoder().encode(usageSamples) {
-            try? data.write(to: url)
-        }
-    }
-
-    func usageMetrics(period: CodeUsagePeriod, now: Date = Date()) -> UsageMetrics {
+    /// Task messages in the period. Subagent children count toward tokens through their parent's model.
+    private func usageRows(period: CodeUsagePeriod, now: Date) -> [UsageRow] {
         let cutoff: Date?
         switch period {
         case .all: cutoff = nil
         case .days30: cutoff = now.addingTimeInterval(-30 * 24 * 60 * 60)
         case .days7: cutoff = now.addingTimeInterval(-7 * 24 * 60 * 60)
         }
-        let samples = usageSamples.filter { sample in
+        let rows = (try? store.usageRows()) ?? []
+        return rows.filter { row in
+            guard row.role == .user || row.role == .assistant else { return false }
             guard let cutoff else { return true }
-            return sample.at >= cutoff
+            guard let at = row.at else { return false }
+            return at >= cutoff
         }
+    }
+
+    func usageMetrics(period: CodeUsagePeriod, now: Date = Date()) -> UsageMetrics {
+        let rows = usageRows(period: period, now: now)
+        let topLevel = Set(sessions.map(\.id))
         let calendar = Calendar.current
-        let days = Set(samples.map { calendar.startOfDay(for: $0.at) })
+        let dated = rows.compactMap(\.at)
+        let days = Set(dated.map { calendar.startOfDay(for: $0) })
         var hourCounts: [Int: Int] = [:]
-        for sample in samples {
-            let hour = calendar.component(.hour, from: sample.at)
-            hourCounts[hour, default: 0] += 1
+        for at in dated {
+            hourCounts[calendar.component(.hour, from: at), default: 0] += 1
         }
-        let peak = hourCounts.max { $0.value < $1.value }?.key
-        var modelCounts: [String: Int] = [:]
-        for sample in samples {
-            modelCounts[sample.modelName, default: 0] += 1
-        }
-        let favorite = modelCounts.max { $0.value < $1.value }?.key
         let peakLabel: String
-        if let peak {
+        if let peak = hourCounts.max(by: { ($0.value, $1.key) < ($1.value, $0.key) })?.key {
             var parts = DateComponents()
             parts.hour = peak
-            let formatted = calendar.date(from: parts).map {
+            peakLabel = calendar.date(from: parts).map {
                 $0.formatted(Date.FormatStyle().hour(.defaultDigits(amPM: .abbreviated)))
-            }
-            peakLabel = formatted ?? "—"
+            } ?? "—"
         } else {
             peakLabel = "—"
         }
         return UsageMetrics(
-            sessions: samples.isEmpty ? (messageCount > 0 && period == .all ? 1 : 0) : 1,
-            messages: period == .all ? messageCount : samples.count,
-            tokens: period == .all ? totalTokenCount : 0,
+            sessions: Set(rows.map(\.sessionID)).intersection(topLevel).count,
+            messages: rows.count,
+            tokens: rows.reduce(0) { $0 + ($1.outputTokens ?? 0) },
             activeDays: days.count,
             peakHour: peakLabel,
-            favoriteModel: favorite ?? (period == .all ? (installedModelName ?? "—") : "—")
+            favoriteModel: modelShares(period: period, now: now).first?.name ?? "—"
         )
+    }
+
+    /// One entry per model with output tokens, largest share first.
+    func modelShares(period: CodeUsagePeriod, now: Date = Date()) -> [(name: String, share: Double)] {
+        var tokens: [String: Int] = [:]
+        for row in usageRows(period: period, now: now) {
+            guard let count = row.outputTokens, count > 0 else { continue }
+            tokens[row.modelIdentifier, default: 0] += count
+        }
+        let total = Double(tokens.values.reduce(0, +))
+        guard total > 0 else { return [] }
+        return tokens
+            .sorted { ($0.value, $1.key) > ($1.value, $0.key) }
+            .map { (displayName(modelIdentifier: $0.key), Double($0.value) / total) }
+    }
+
+    /// The last 26 days, oldest first: 0 idle, 1 active, 2 at least half the busiest day's messages.
+    func activityLevels(now: Date = Date()) -> [Int] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        var counts: [Date: Int] = [:]
+        for at in usageRows(period: .all, now: now).compactMap(\.at) {
+            counts[calendar.startOfDay(for: at), default: 0] += 1
+        }
+        let days = (0..<26).reversed().compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
+        let busiest = days.map { counts[$0] ?? 0 }.max() ?? 0
+        return days.map { day in
+            let count = counts[day] ?? 0
+            if count == 0 { return 0 }
+            return busiest > 1 && count * 2 >= busiest ? 2 : 1
+        }
+    }
+
+    func displayName(modelIdentifier: String) -> String {
+        if modelIdentifier == installedModelIdentifier, let installedModelName { return installedModelName }
+        let parts = modelIdentifier.split(separator: ":").map(String.init)
+        guard parts.count >= 3 else { return modelIdentifier }
+        return "\(parts[1].prefix(1).uppercased())\(parts[1].dropFirst()) \(parts[2].uppercased())"
+    }
+
+    var allTimeTokenCount: Int {
+        ((try? store.usageRows()) ?? []).reduce(0) { $0 + ($1.outputTokens ?? 0) }
     }
 
     func stopTurn() async {
@@ -422,7 +713,29 @@ final class AppModel: ObservableObject {
     }
 
     func reloadTranscript() {
-        transcript = (try? store.messages(sessionID: sessionID)) ?? []
+        let messages = (try? store.messages(sessionID: sessionID)) ?? []
+        if messages != transcript { transcript = messages }
+        let steps = (try? store.todos(sessionID: sessionID)) ?? []
+        if steps != todos { todos = steps }
+    }
+
+    /// Files the model read, wrote or edited in this task, in first-use order.
+    var referencedFiles: [String] {
+        var seen = Set<String>()
+        var files: [String] = []
+        for message in transcript where message.role == .assistant {
+            for call in message.toolCalls where ["read", "write", "edit"].contains(call.name) {
+                guard case .object(let fields) = call.arguments,
+                      case .string(let path)? = fields["path"], !path.isEmpty else { continue }
+                if seen.insert(path).inserted { files.append(path) }
+            }
+        }
+        return files
+    }
+
+    func resolvedProjectURL(_ path: String) -> URL {
+        path.hasPrefix("/") ? URL(fileURLWithPath: path)
+            : URL(fileURLWithPath: workspaceProjectPath).appendingPathComponent(path)
     }
 
     func pumpTranscript() async {
@@ -449,12 +762,21 @@ final class AppModel: ObservableObject {
         await runner.replyPermission(pending.id, reply)
     }
 
+    /// The folder for the next new task. An open session that has no messages yet moves there too.
     func setProjectFolder(_ url: URL) {
         codeFolderName = url.lastPathComponent
         coworkProjectName = url.lastPathComponent
-        guard var session = try? store.session(id: sessionID) else { return }
+        nextProjectPath = url.path
+        guard var session = try? store.session(id: sessionID),
+              ((try? store.messages(sessionID: sessionID)) ?? []).isEmpty else { return }
         session.projectPath = url.path
         try? store.updateSession(session)
+    }
+
+    func clearProjectFolder() {
+        codeFolderName = "Select folder…"
+        coworkProjectName = "No project"
+        nextProjectPath = nil
     }
 
     func submitThread() async {
@@ -480,7 +802,7 @@ final class AppModel: ObservableObject {
             showToast("Write a task to get started.")
             return false
         }
-        await sendPrompt(trimmed)
+        await sendPrompt(trimmed, newTask: true)
         return true
     }
 
@@ -517,11 +839,23 @@ final class AppModel: ObservableObject {
             return path
         }
     }
-    var hasArtifacts: Bool { !createdArtifactPaths.isEmpty }
-    var hasPinnedItems: Bool { taskPinned }
-    var commandCount: Int {
-        transcript.filter { $0.role == .tool && ($0.toolName == "bash" || $0.text.hasPrefix("Ran:")) }.count
+    var hasArtifacts: Bool { !allArtifacts.isEmpty }
+
+    /// Every file a task wrote, newest task first, with the task that wrote it.
+    var allArtifacts: [(path: String, taskID: String, taskTitle: String)] {
+        var seen = Set<String>()
+        var list: [(path: String, taskID: String, taskTitle: String)] = []
+        for task in sessions where task.messageCount > 0 {
+            let messages = (try? store.messages(sessionID: task.id)) ?? []
+            for message in messages where message.role == .tool && message.text.hasPrefix("Wrote ") {
+                let path = String(message.text.dropFirst("Wrote ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !path.isEmpty, seen.insert(path).inserted else { continue }
+                list.append((path, task.id, task.displayTitle))
+            }
+        }
+        return list
     }
+    var hasPinnedItems: Bool { !pinnedSessions.isEmpty }
     var referencedToolNames: [String] {
         var names: [String] = []
         for message in transcript {
@@ -533,32 +867,6 @@ final class AppModel: ObservableObject {
             }
         }
         return names
-    }
-
-    func deleteCurrentTask() {
-        try? store.deleteMessages(sessionID: sessionID)
-        taskTitle = "Task"
-        taskPinned = false
-        reloadTranscript()
-    }
-    var recentTaskTitles: [String] {
-        guard shouldShowTaskInSidebar else { return [] }
-        return [taskSidebarTitle]
-    }
-
-    var taskSidebarTitle: String { taskTitle }
-
-    private var shouldShowTaskInSidebar: Bool {
-        if showTaskThread, coworkDestination == .task {
-            return true
-        }
-        let messages = (try? store.userMessages(sessionID: sessionID)) ?? []
-        return !messages.isEmpty
-    }
-    var messageCount: Int { transcript.count }
-
-    var totalTokenCount: Int {
-        transcript.reduce(0) { $0 + ($1.outputTokens ?? 0) }
     }
 
     func restoringSavedSettings() -> AppModel {
@@ -580,11 +888,18 @@ final class AppModel: ObservableObject {
         if let saved = try? String(contentsOf: supportDirectory.appendingPathComponent("memories.md"), encoding: .utf8) {
             memories = saved.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
         }
-        let usageURL = supportDirectory.appendingPathComponent("usage.json")
-        if let data = try? Data(contentsOf: usageURL),
-           let decoded = try? JSONDecoder().decode([UsageSample].self, from: data) {
-            usageSamples = decoded
+        if let saved = try? String(contentsOf: supportDirectory.appendingPathComponent("work-description.txt"), encoding: .utf8),
+           !saved.isEmpty {
+            workDescription = saved
         }
+        restoreAppearance()
+        configure(runner)
+        reloadSessions()
+        refreshMCPLines()
+        return self
+    }
+
+    private func configure(_ runner: SessionRunner) {
         let directory = supportDirectory
         runner.contextCoordinator.loadUserInstructions = {
             var parts = ["instructions.md", "cowork-instructions.md"].compactMap { name -> String? in
@@ -592,6 +907,10 @@ final class AppModel: ObservableObject {
                 guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty ? nil : trimmed
+            }
+            if let work = try? String(contentsOf: directory.appendingPathComponent("work-description.txt"), encoding: .utf8),
+               work != "Select", !work.isEmpty {
+                parts.insert("The user's work: \(work).", at: 0)
             }
             let enabled = (try? String(contentsOf: directory.appendingPathComponent("memory-enabled.txt"), encoding: .utf8))
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } != "0"
@@ -602,8 +921,6 @@ final class AppModel: ObservableObject {
             }
             return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
         }
-        refreshMCPLines()
-        return self
     }
 
     func saveInstructions() {
@@ -667,6 +984,55 @@ final class AppModel: ObservableObject {
             }
             return "\(entry.name) · \(state)"
         }
+    }
+
+    private var appearanceURL: URL {
+        supportDirectory.appendingPathComponent("appearance.json")
+    }
+
+    private func restoreAppearance() {
+        guard let data = try? Data(contentsOf: appearanceURL),
+              let saved = try? JSONDecoder().decode(AppearanceSettings.self, from: data) else { return }
+        restoringAppearance = true
+        defer { restoringAppearance = false }
+        if let value = AppTheme(rawValue: saved.theme) { theme = value }
+        chatFont = YuzuFonts.chatChoices.contains(saved.chatFont) ? saved.chatFont : "Source Serif"
+        motionSetting = saved.motionSetting
+        codeFont = saved.codeFont
+        interfaceFont = YuzuFonts.interfaceChoices.contains(saved.interfaceFont) ? saved.interfaceFont : "Inter"
+        transcriptSize = saved.transcriptSize
+        transcriptWidth = saved.transcriptWidth
+        transcriptView = saved.transcriptView
+        lightCodeTheme = saved.lightCodeTheme
+        darkCodeTheme = saved.darkCodeTheme
+    }
+
+    private func saveAppearance() {
+        guard !restoringAppearance else { return }
+        let settings = AppearanceSettings(
+            theme: theme.rawValue,
+            chatFont: chatFont,
+            motionSetting: motionSetting,
+            codeFont: codeFont,
+            interfaceFont: interfaceFont,
+            transcriptSize: transcriptSize,
+            transcriptWidth: transcriptWidth,
+            transcriptView: transcriptView,
+            lightCodeTheme: lightCodeTheme,
+            darkCodeTheme: darkCodeTheme
+        )
+        guard let data = try? JSONEncoder().encode(settings) else { return }
+        try? data.write(to: appearanceURL, options: .atomic)
+    }
+
+    var isDarkAppearance: Bool {
+        theme.palette.canvas == Tokens.dark.canvas
+    }
+
+    /// The code theme for the window's current light or dark appearance.
+    func activeCodeTheme(dark: Bool) -> CodeTheme {
+        let raw = dark ? darkCodeTheme : lightCodeTheme
+        return CodeTheme(rawValue: raw) ?? (dark ? .githubDark : .githubLight)
     }
 
     var transcriptFontSize: CGFloat {
@@ -733,6 +1099,7 @@ final class AppModel: ObservableObject {
         let documents = try JSONDecoder().decode([SessionDocument].self, from: data)
         try store.importSessionDocuments(documents)
         reloadTranscript()
+        reloadSessions()
     }
 
     var modelDisplayName: String {
@@ -833,20 +1200,24 @@ final class AppModel: ObservableObject {
             let installed = try await UzuRuntime.installAdvised { status in
                 self.downloadStatus = status
             }
+            sharedTurn = installed.turn
             runner.useModel(installed.turn)
             installedModelName = installed.name
+            installedModelIdentifier = installed.identifier
             if var session = try store.session(id: sessionID) {
                 session.modelIdentifier = installed.identifier
                 try store.updateSession(session)
             }
             downloadStatus = nil
+            log("model loaded \(installed.identifier)")
         } catch {
             downloadStatus = "Could not download a model"
+            log("model install failed: \(error)")
         }
     }
 
     var gatsbyUsageNote: String {
-        let multiple = max(1, totalTokenCount / 62_000)
+        let multiple = max(1, allTimeTokenCount / 62_000)
         return "You've used ~\(multiple)× more tokens than The Great Gatsby."
     }
 
@@ -899,10 +1270,18 @@ final class AppModel: ObservableObject {
         (try? store.session(id: sessionID)?.projectPath) ?? ""
     }
 
-    var knownCoworkProjectFolders: [String] {
-        let path = workspaceProjectPath
-        guard !path.isEmpty else { return [] }
-        return [URL(fileURLWithPath: path).lastPathComponent]
+    var defaultWorkspacePath: String {
+        supportDirectory.appendingPathComponent("workspace", isDirectory: true).path
+    }
+
+    /// Folders that tasks ran in, newest first, without the app's own scratch workspace.
+    var knownProjectFolders: [URL] {
+        var seen = Set<String>()
+        let paths = ([nextProjectPath].compactMap { $0 } + sessions.map(\.projectPath))
+        return paths.compactMap { path in
+            guard path != defaultWorkspacePath, !path.isEmpty, seen.insert(path).inserted else { return nil }
+            return URL(fileURLWithPath: path)
+        }
     }
 
     var coworkEffortLabel: String {

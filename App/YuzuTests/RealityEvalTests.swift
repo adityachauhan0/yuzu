@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 import YuzuHarness
 @testable import Yuzu
@@ -40,12 +41,10 @@ final class RealityEvalTests: XCTestCase {
         }
 
         let nonce = "nonce-\(UUID().uuidString)"
-        let session = try XCTUnwrap(try model.store.session(id: model.sessionID))
-        try model.store.deleteMessages(sessionID: model.sessionID)
-        var clean = session
-        clean.modelMessageCursor = 0
-        clean.epochID = "epoch-r2-\(UUID().uuidString)"
-        try model.store.updateSession(clean)
+        model.beginTask()
+        let taskID = model.sessionID
+        defer { try? model.store.deleteSession(id: taskID) }
+        let session = try XCTUnwrap(try model.store.session(id: taskID))
         let secret = URL(fileURLWithPath: session.projectPath).appendingPathComponent("secret.txt")
         try nonce.write(to: secret, atomically: true, encoding: .utf8)
         let prompt = "Use the read tool on secret.txt. Reply with only the file contents."
@@ -97,7 +96,10 @@ final class RealityEvalTests: XCTestCase {
         await model.replyToPending(.once)
         await run.value
         let messages = try model.store.messages(sessionID: model.sessionID)
-        XCTAssertTrue(messages.contains { $0.role == .tool && $0.text.contains("Ran:") })
+        XCTAssertTrue(
+            messages.contains { $0.role == .tool && $0.text.contains("Ran:") },
+            "Tool results: \(messages.filter { $0.role == .tool }.map(\.text))"
+        )
     }
 
     func testMemoryFromATurnIsIncludedUntilTheSwitchIsOff() async throws {
@@ -142,10 +144,47 @@ final class RealityEvalTests: XCTestCase {
         XCTAssertTrue(messages.isEmpty)
     }
 
+    func testAppearanceChoicesSurviveARelaunch() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("yuzu-appearance-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let database = directory.appendingPathComponent("test.sqlite")
+        let first = try AppModel.makeForTesting(databaseURL: database)
+        XCTAssertEqual(first.activeCodeTheme(dark: true), .githubDark)
+        first.darkCodeTheme = CodeTheme.defaultDark.rawValue
+        first.lightCodeTheme = CodeTheme.defaultLight.rawValue
+        first.codeFont = "Menlo"
+        first.transcriptSize = "Large"
+        first.theme = .light
+
+        let relaunched = try AppModel.makeForTesting(databaseURL: database)
+        XCTAssertEqual(relaunched.activeCodeTheme(dark: true), .defaultDark)
+        XCTAssertEqual(relaunched.activeCodeTheme(dark: false), .defaultLight)
+        XCTAssertEqual(relaunched.codeFont, "Menlo")
+        XCTAssertEqual(relaunched.transcriptSize, "Large")
+        XCTAssertEqual(relaunched.theme, .light)
+    }
+
+    func testFencedCodeIsSplitFromProse() {
+        let text = "Here it is:\n```swift\nlet x = 1\nprint(x)\n```\nDone."
+        XCTAssertEqual(FencedText.segments(text), [
+            .prose("Here it is:"),
+            .code("let x = 1\nprint(x)"),
+            .prose("Done."),
+        ])
+        XCTAssertEqual(FencedText.segments("plain"), [.prose("plain")])
+    }
+
     func testFontChoicesResolveToTheFamiliesTheUIUses() {
         XCTAssertEqual(YuzuFonts.interfaceFamily("System"), "")
-        XCTAssertEqual(YuzuFonts.interfaceFamily("Serif"), "Georgia")
+        XCTAssertEqual(YuzuFonts.interfaceFamily("Inter"), "Inter")
         XCTAssertEqual(YuzuFonts.interfaceFamily("OpenDyslexic"), "OpenDyslexic")
+        XCTAssertEqual(YuzuFonts.chatFamily("Source Serif"), "Source Serif 4")
+        XCTAssertEqual(YuzuFonts.chatFamily("System"), "")
+        for family in ["Inter", "Source Serif 4", "OpenDyslexic"] {
+            XCTAssertNotNil(NSFont(name: family, size: 14), "\(family) is not registered from the bundle")
+        }
+        XCTAssertNotNil(Bundle.main.url(forResource: "AppIcon", withExtension: "icns"))
         XCTAssertEqual(YuzuFonts.codeFamily(""), "")
         XCTAssertEqual(YuzuFonts.codeFamily(" JetBrains Mono "), "JetBrains Mono")
     }

@@ -1,7 +1,7 @@
 import SwiftUI
 import YuzuHarness
 
-private enum CustomizeTab: String, CaseIterable {
+enum CustomizeTab: String, CaseIterable {
     case skills = "Skills"
     case connectors = "Connectors"
     case plugins = "Plugins"
@@ -17,6 +17,8 @@ struct CustomizeView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
     @State private var tab: CustomizeTab = .skills
+    /// Settings shows one pane inside its own main column, without the page title or tabs.
+    var embeddedTab: CustomizeTab?
     @State private var searchVisible = false
     @State private var searchQuery = ""
     @State private var filterMenuOpen = false
@@ -41,32 +43,38 @@ struct CustomizeView: View {
 
     var body: some View {
         ZStack {
-            ScrollView {
+            if let embeddedTab {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Customize")
-                        .font(.custom("Georgia", size: 32))
-                        .foregroundStyle(colors.text)
-                        .tracking(-1.28)
-
-                    customizeToolbar
-                        .padding(.top, 26)
-
-                    switch tab {
-                    case .skills:
-                        skillsPanel
-                    case .connectors:
-                        connectorsPanel
-                    case .plugins:
-                        otherPanel(title: "Plugins", copy: "No plugins yet.")
+                    if embeddedTab == .skills {
+                        HStack {
+                            Spacer()
+                            skillsActions
+                        }
                     }
+                    panel(embeddedTab)
                 }
-                .frame(maxWidth: 1152, alignment: .leading)
-                .padding(.horizontal, 40)
-                .padding(.top, 65)
-                .padding(.bottom, 36)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Customize")
+                            .font(.custom("Georgia", size: 32))
+                            .foregroundStyle(colors.text)
+                            .tracking(-1.28)
+
+                        customizeToolbar
+                            .padding(.top, 26)
+
+                        panel(tab)
+                    }
+                    .frame(maxWidth: 1152, alignment: .leading)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 65)
+                    .padding(.bottom, 36)
+                    .frame(maxWidth: .infinity)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             if let dialog = skillDialog {
                 SkillDialogView(colors: colors, mode: dialog) {
@@ -74,6 +82,33 @@ struct CustomizeView: View {
                     skillsRefresh += 1
                 }
             }
+        }
+        .onChange(of: model.requestedSkill, initial: true) { _, name in
+            guard let name else { return }
+            model.requestedSkill = nil
+            tab = .skills
+            if let skill = skills.first(where: { $0.name == name }) {
+                skillDialog = .detail(name: skill.name, description: skill.description)
+            }
+        }
+        .dismissesOnEscape($filterMenuOpen)
+        .dismissesOnEscape($addMenuOpen)
+        .dismissesOnEscape(when: searchVisible) {
+            searchVisible = false
+            searchQuery = ""
+        }
+        .dismissesOnEscape(when: skillDialog != nil) { skillDialog = nil }
+    }
+
+    @ViewBuilder
+    private func panel(_ tab: CustomizeTab) -> some View {
+        switch tab {
+        case .skills:
+            skillsPanel
+        case .connectors:
+            connectorsPanel
+        case .plugins:
+            otherPanel(title: "Plugins", copy: "No plugins yet.")
         }
     }
 
@@ -281,20 +316,11 @@ struct CustomizeView: View {
                     .foregroundStyle(colors.muted)
             } else {
                 ForEach(model.mcpServerLines, id: \.self) { line in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(line)
-                            .font(.system(size: 15))
-                            .foregroundStyle(colors.muted)
-                        if line.contains("needs auth"), let name = mcpServerName(line) {
-                            Button("Sign in") { model.beginMCPSignIn(serverName: name) }
-                                .buttonStyle(.plain)
-                                .accessibilityID("mcp-sign-in-\(name)")
-                        }
-                    }
+                    connectorRow(line)
                 }
             }
             Button("Add") {
-                model.openSettings(tab: .developer)
+                model.openSettings(tab: .developer, anchor: .mcpConfig)
             }
             .buttonStyle(.plain)
             .font(.system(size: 14))
@@ -306,6 +332,39 @@ struct CustomizeView: View {
             .accessibilityID("connectors-add")
         }
         .padding(.top, 33)
+    }
+
+    /// `.skill-row`: the server name, and its status in the meta line.
+    private func connectorRow(_ line: String) -> some View {
+        let name = mcpServerName(line) ?? line
+        let status = line.split(separator: "·", maxSplits: 1).dropFirst().first
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        return HStack(alignment: .center, spacing: 20) {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 18))
+                .foregroundStyle(colors.dim)
+                .frame(width: 43, height: 43)
+                .background(colors.side)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 16))
+                    .foregroundStyle(colors.text)
+                Text(status)
+                    .font(.system(size: 14))
+                    .foregroundStyle(colors.dim)
+            }
+            Spacer(minLength: 0)
+            if status == "needs auth" {
+                Button("Sign in") { model.beginMCPSignIn(serverName: name) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.text)
+                    .accessibilityID("mcp-sign-in-\(name)")
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityID("connector-row", label: "\(name), \(status)")
     }
 
     private func mcpServerName(_ line: String) -> String? {

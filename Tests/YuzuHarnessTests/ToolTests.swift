@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import YuzuHarness
 
+@Suite(.readsMCPHub)
 struct ToolTests {
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
@@ -168,14 +169,10 @@ struct ToolTests {
     }
 
     @Test func T8_outputCapWritesFile() throws {
-        let previousCap = ToolOutput.characterCapForTesting
-        ToolOutput.characterCapForTesting = 100
-        defer { ToolOutput.characterCapForTesting = previousCap }
-
         let project = try makeWorkspace()
         let sessionID = "session-cap"
         let callID = "call-t8"
-        let big = String(repeating: "x", count: 10_000)
+        let big = String(repeating: "x", count: ToolOutput.productionCharacterCap * 2)
         let file = project.appendingPathComponent("big.txt")
         try big.write(to: file, atomically: true, encoding: .utf8)
 

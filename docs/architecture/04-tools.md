@@ -28,6 +28,7 @@ Registration is scoped. Builtins register for the life of the process. An MCP se
 | `edit` | `edit` | One exact string replace. Fail if the match is missing or ambiguous |
 | `bash` | `bash` | One command, timeout, truncated output. Working directory is the project. No persistent shell |
 | `skill` | `skill` | Load one skill body. See [Skills](06-skills.md) |
+| `todowrite` | none | Replace the session's step list (`content`, `status`). The inspector's Progress draws it |
 
 `write` and `edit` share the `edit` action so one allow rule covers both. Paths are the permission resource (`edit` on `src/main.swift`). Bash’s resource is the command string. The gate can also match a prefix later; v1 of the rule language is wildcard on the whole string, same as OpenCode’s `Wildcard.match`.
 

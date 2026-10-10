@@ -14,28 +14,30 @@ enum BashRunner {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        process.standardInput = FileHandle.nullDevice
+
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
+
         do {
             try process.run()
         } catch {
             return "Error: \(error.localizedDescription)"
         }
 
-        let limit = timeoutSeconds ?? defaultTimeoutSeconds
-        let group = DispatchGroup()
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            process.waitUntilExit()
-            group.leave()
-        }
+        // Drain both pipes while the command runs; a full pipe buffer blocks the child.
+        let stdoutData = PipeDrain(stdoutPipe.fileHandleForReading)
+        let stderrData = PipeDrain(stderrPipe.fileHandleForReading)
 
-        if group.wait(timeout: .now() + limit) == .timedOut {
+        let limit = timeoutSeconds ?? defaultTimeoutSeconds
+        if exited.wait(timeout: .now() + limit) == .timedOut {
             process.terminate()
-            _ = group.wait(timeout: .now() + 2)
+            _ = exited.wait(timeout: .now() + 2)
             return "Error: command timed out after \(Int(limit)) second(s)"
         }
 
-        let stdout = String(data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        let stderr = String(data: stderrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let stdout = String(data: stdoutData.finish(), encoding: .utf8) ?? ""
+        let stderr = String(data: stderrData.finish(), encoding: .utf8) ?? ""
 
         var body = stdout
         if !stderr.isEmpty {
@@ -45,5 +47,33 @@ enum BashRunner {
             body += stderr
         }
         return "Ran: \(command)\n\(body)"
+    }
+}
+
+private final class PipeDrain: @unchecked Sendable {
+    private let handle: FileHandle
+    private let lock = NSLock()
+    private let done = DispatchSemaphore(value: 0)
+    private var data = Data()
+
+    init(_ handle: FileHandle) {
+        self.handle = handle
+        handle.readabilityHandler = { [self] handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+                done.signal()
+            } else {
+                lock.withLock { data.append(chunk) }
+            }
+        }
+    }
+
+    func finish() -> Data {
+        // Another spawned process can inherit the write end and hold EOF back.
+        if done.wait(timeout: .now() + 0.5) == .timedOut {
+            handle.readabilityHandler = nil
+        }
+        return lock.withLock { data }
     }
 }

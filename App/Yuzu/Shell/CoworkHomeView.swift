@@ -27,6 +27,9 @@ struct CoworkHomeView: View {
             prompt = seed
             model.coworkSeed = nil
         }
+        .dismissesOnEscape($addMenuOpen)
+        .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnEscape($projectMenuOpen)
     }
 
     private var welcomeHeading: some View {
@@ -222,15 +225,15 @@ struct CoworkHomeView: View {
     private var projectMenu: some View {
         HandoffPopover(colors: colors) {
             HandoffMenuLabel(title: "Project", colors: colors)
-            ForEach(model.knownCoworkProjectFolders, id: \.self) { folder in
-                HandoffPopoverRow(title: folder, colors: colors) {
-                    model.coworkProjectName = folder
+            ForEach(model.knownProjectFolders, id: \.self) { folder in
+                HandoffPopoverRow(title: folder.lastPathComponent, colors: colors) {
+                    model.setProjectFolder(folder)
                     projectMenuOpen = false
                 }
-                .accessibilityIdentifier("cowork-project-\(folder)")
+                .accessibilityIdentifier("cowork-project-\(folder.lastPathComponent)")
             }
             HandoffPopoverRow(title: "No project", colors: colors) {
-                model.coworkProjectName = "No project"
+                model.clearProjectFolder()
                 projectMenuOpen = false
             }
             .accessibilityID("cowork-project-none")

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import YuzuHarness
 
-@Suite(.serialized)
+@Suite(.serialized, .ownsMCPHub)
 struct MCPTests {
     private func fixturesURL(_ name: String) -> URL {
         URL(fileURLWithPath: #filePath)

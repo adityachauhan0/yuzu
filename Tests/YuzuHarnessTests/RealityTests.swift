@@ -4,6 +4,7 @@ import YuzuHarness
 
 /// Guards the stand-in. These pass today on purpose.
 /// A green R0 does not mean the app is a harness. R1 and R2 live on the app target and must fail until launch uses uzu.
+@Suite(.readsMCPHub)
 struct RealityTests {
     @Test func R0_scriptedTurnIsNotALiveEngine() {
         let model = ScriptedTurn(turns: [AssistantTurn(text: "scripted-canned-line")])

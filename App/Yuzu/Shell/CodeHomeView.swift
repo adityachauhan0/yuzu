@@ -19,6 +19,8 @@ struct CodeHomeView: View {
     @State private var prompt = ""
     @State private var usageTab: CodeUsageTab = .overview
     @State private var modelMenuOpen = false
+    @State private var addMenuOpen = false
+    @State private var attachments: [String] = []
 
     private var isDark: Bool { model.theme == .dark }
 
@@ -28,6 +30,24 @@ struct CodeHomeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     heading
                     usageCard
+                    if let preview = model.codeTaskPreview {
+                        Button {
+                            model.openTask(model.sessionID)
+                        } label: {
+                            Text(preview)
+                                .font(.system(size: 15))
+                                .foregroundStyle(colors.softText)
+                                .multilineTextAlignment(.leading)
+                                .padding(.vertical, 9)
+                                .padding(.horizontal, 12)
+                                .background(colors.preview)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 20)
+                        .padding(.leading, 10)
+                        .accessibilityID("code-task-preview", label: preview)
+                    }
                 }
                 .frame(maxWidth: CGFloat(Tokens.contentWidth), alignment: .leading)
                 .padding(.top, 55)
@@ -38,6 +58,8 @@ struct CodeHomeView: View {
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .dismissesOnEscape($addMenuOpen)
+        .dismissesOnEscape($modelMenuOpen)
     }
 
     private var heading: some View {
@@ -150,7 +172,7 @@ struct CodeHomeView: View {
 
             heatmap
 
-            if model.totalTokenCount > 0 {
+            if metrics.tokens > 0 {
                 Text(model.gatsbyUsageNote)
                     .font(.system(size: 13))
                     .foregroundStyle(colors.dim)
@@ -160,19 +182,25 @@ struct CodeHomeView: View {
     }
 
     private var modelsPanel: some View {
-        HStack {
-            Text(model.modelDisplayName)
-                .font(.system(size: 15))
-                .foregroundStyle(colors.text)
-            Spacer()
-            Text("Favorite model")
-                .font(.system(size: 13))
-                .foregroundStyle(colors.dim)
+        let shares = model.modelShares(period: model.usagePeriod)
+        return VStack(spacing: 5) {
+            ForEach(Array(shares.enumerated()), id: \.offset) { index, entry in
+                HStack {
+                    Text(entry.name)
+                        .font(.system(size: 15))
+                        .foregroundStyle(colors.text)
+                    Spacer()
+                    Text(index == 0 ? "Favorite model" : entry.share.formatted(.percent.precision(.fractionLength(0))))
+                        .font(.system(size: 13))
+                        .foregroundStyle(colors.subtle)
+                }
+                .padding(.horizontal, 9)
+                .frame(minHeight: 54)
+                .background(colors.selected)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .accessibilityID("code-model-row")
+            }
         }
-        .padding(.horizontal, 9)
-        .frame(minHeight: 54)
-        .background(colors.selected)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
         .frame(minHeight: 162, alignment: .top)
     }
 
@@ -198,13 +226,22 @@ struct CodeHomeView: View {
             columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 26),
             spacing: 4
         ) {
-            ForEach(0..<26, id: \.self) { _ in
+            ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(colors.line)
+                    .fill(level == 2 ? colors.accent : level == 1 ? colors.heatLow : colors.line)
                     .aspectRatio(1, contentMode: .fit)
             }
         }
-        .accessibilityLabel("Activity over time")
+        .padding(.top, 7)
+        .accessibilityElement(children: .ignore)
+        .accessibilityID("code-heatmap", label: heatmapLabel)
+    }
+
+    private var levels: [Int] { model.activityLevels() }
+
+    private var heatmapLabel: String {
+        let active = levels.filter { $0 > 0 }.count
+        return "Activity over time, \(active) active day\(active == 1 ? "" : "s")"
     }
 
     private var footer: some View {
@@ -248,18 +285,25 @@ struct CodeHomeView: View {
                         .padding(.vertical, 10)
                         .foregroundStyle(colors.text)
                         .font(.system(size: 16))
+                        .onKeyPress { press in
+                            guard press.key == .return, !press.modifiers.contains(.shift) else { return .ignored }
+                            send()
+                            return .handled
+                        }
+                        .accessibilityID("code-prompt", label: "Describe a task or ask a question")
 
                     HStack {
                         Spacer()
-                        Button {
-                            Task { await model.sendPrompt(prompt) }
-                        } label: {
+                        Button(action: send) {
                             Image(systemName: "arrow.turn.down.left")
                                 .font(.system(size: 15))
                                 .frame(width: 40, height: 40)
+                                .background(promptReady ? colors.surfaceHover : Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 9))
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(colors.dim)
+                        .foregroundStyle(promptReady ? colors.softText : colors.dim)
+                        .accessibilityID(promptReady ? "code-submit-ready" : "code-submit", label: "Send Code task")
                     }
                     .padding(.trailing, 5)
                 }
@@ -281,7 +325,8 @@ struct CodeHomeView: View {
 
             HStack(spacing: 11) {
                 Button {
-                    attachContext()
+                    addMenuOpen.toggle()
+                    modelMenuOpen = false
                 } label: {
                     Text("+")
                         .font(.system(size: 23))
@@ -336,8 +381,39 @@ struct CodeHomeView: View {
                 .accessibilityID("code-effort")
             }
             .padding(.top, 5)
+
+            if !attachments.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(attachments, id: \.self) { path in
+                        Text(URL(fileURLWithPath: path).lastPathComponent)
+                            .font(.system(size: 13))
+                            .foregroundStyle(colors.dim)
+                            .lineLimit(1)
+                    }
+                }
+                .accessibilityID("code-attachments")
+            }
         }
         .padding(.top, 20)
+        .overlay(alignment: .bottomLeading) {
+            if addMenuOpen {
+                HandoffPopover(colors: colors) {
+                    HandoffMenuLabel(title: "Add context", colors: colors)
+                    HandoffPopoverRow(title: "Attach a file", colors: colors) {
+                        addMenuOpen = false
+                        attachContext()
+                    }
+                    .accessibilityID("code-attach-file")
+                    HandoffPopoverRow(title: "Choose a project", colors: colors) {
+                        addMenuOpen = false
+                        chooseCodeFolder()
+                    }
+                    .accessibilityID("code-choose-project")
+                }
+                .frame(width: 220)
+                .padding(.bottom, 36)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
             if modelMenuOpen {
                 HandoffPopover(colors: colors) {
@@ -347,7 +423,7 @@ struct CodeHomeView: View {
                             title: "\(model.modelDisplayName) · \(effort)",
                             colors: colors
                         ) {
-                            model.reasoningEffort = codeEffort(effort)
+                            model.reasoningEffort = ReasoningEffort.fromLabel(effort)
                             modelMenuOpen = false
                         }
                     }
@@ -357,12 +433,16 @@ struct CodeHomeView: View {
         }
     }
 
-    private func codeEffort(_ label: String) -> ReasoningEffort {
-        switch label {
-        case "Low": return .low
-        case "Medium": return .medium
-        default: return .high
-        }
+    private var promptReady: Bool {
+        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func send() {
+        let body = ComposerContext.prompt(prompt, attachments: attachments)
+        guard promptReady else { return }
+        prompt = ""
+        attachments = []
+        Task { await model.sendPrompt(body, newTask: true) }
     }
 
     private func chooseCodeFolder() {
@@ -381,12 +461,7 @@ struct CodeHomeView: View {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         if panel.runModal() == .OK {
-            let paths = panel.urls.map(\.path).joined(separator: "\n")
-            if prompt.isEmpty {
-                prompt = paths
-            } else {
-                prompt += "\n" + paths
-            }
+            attachments.append(contentsOf: panel.urls.map(\.path).filter { !attachments.contains($0) })
         }
     }
 }

@@ -13,6 +13,11 @@ targets:
     platform: macOS
     sources:
       - path: Yuzu
+        excludes:
+          - "Fonts/**"
+      - path: Yuzu/Fonts
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yuzu.app

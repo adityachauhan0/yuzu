@@ -45,6 +45,81 @@ struct LiveUzuTests {
         #expect(second.text.contains("pong"), "finished text was \(second.text)")
         #expect(second.toolCalls.isEmpty)
     }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["YUZU_EVAL_MODEL"] == "1"))
+    func U2_toolChangeMidEpochKeepsHistory() async throws {
+        let epochID = "u2"
+        let codeword = "TANGERINE"
+        let answer = try await EvalModel.shared.run { turn -> AssistantTurn in
+            _ = try await finish(
+                TurnRequest(
+                    epochID: epochID,
+                    delta: [
+                        .system("You are a terse assistant."),
+                        .user("My codeword is \(codeword). Reply with only OK."),
+                    ],
+                    tools: [echoTool],
+                    reasoningEffort: .disabled,
+                    contextLength: evalContextLength
+                ),
+                on: turn
+            )
+            let shout = ToolDefinition(name: "shout", description: "Shout text.", parameters: echoTool.parameters)
+            return try await finish(
+                TurnRequest(
+                    epochID: epochID,
+                    delta: [.user("What is my codeword? Reply with only the codeword.")],
+                    tools: [echoTool, shout],
+                    reasoningEffort: .disabled,
+                    contextLength: evalContextLength
+                ),
+                on: turn
+            )
+        }
+        print("U2 \(describe(answer))")
+        #expect(answer.text.uppercased().contains(codeword), "answer was \(answer.text)")
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["YUZU_EVAL_MODEL"] == "1"))
+    func U3_cancelStopsGenerationAndTheNextTurnAnswers() async throws {
+        let epochID = "u3"
+        let codeword = "MARIGOLD"
+        let (chunks, drained, answer) = try await EvalModel.shared.run { turn -> (Int, TimeInterval, AssistantTurn) in
+            var chunks = 0
+            let system = StoredMessage.system("You are a terse assistant.")
+            let counting = StoredMessage.user("My codeword is \(codeword). Now count from 1 to 2000, one number per line.")
+            for try await event in turn.complete(
+                TurnRequest(
+                    epochID: epochID,
+                    delta: [system, counting],
+                    tools: [],
+                    reasoningEffort: .disabled,
+                    contextLength: evalContextLength
+                )
+            ) {
+                if case .text = event { chunks += 1 }
+                if case .finished(let first) = event { print("U3 first finished early \(describe(first))") }
+                if chunks == 5 { break }
+            }
+            let cancelled = Date()
+            // A cancelled turn leaves the harness cursor in place, so the next delta repeats its input.
+            let answer = try await finish(
+                TurnRequest(
+                    epochID: epochID,
+                    delta: [system, counting, .user("Stop counting. What is my codeword? Reply with only the codeword.")],
+                    tools: [],
+                    reasoningEffort: .disabled,
+                    contextLength: evalContextLength
+                ),
+                on: turn
+            )
+            return (chunks, Date().timeIntervalSince(cancelled), answer)
+        }
+        print("U3 chunks=\(chunks) next turn took \(drained)s \(describe(answer))")
+        #expect(chunks == 5)
+        #expect(drained < 20, "the cancelled generation kept running for \(drained)s")
+        #expect(answer.text.uppercased().contains(codeword), "answer was \(answer.text)")
+    }
 }
 
 private let evalContextLength = 32_768

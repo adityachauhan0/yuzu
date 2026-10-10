@@ -1,6 +1,35 @@
 import Foundation
 import GRDB
 
+public struct SessionSummary: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var projectPath: String
+    public var title: String?
+    public var firstPrompt: String?
+    public var createdAt: Date
+    public var lastActivity: Date
+    public var pinned: Bool
+    public var messageCount: Int
+
+    /// The rename if there is one, else the first prompt's first line, else "Task".
+    public var displayTitle: String {
+        if let title, !title.isEmpty { return title }
+        let line = firstPrompt?
+            .split(whereSeparator: \.isNewline).first
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        guard !line.isEmpty else { return "Task" }
+        return line.count > 48 ? String(line.prefix(47)) + "…" : line
+    }
+}
+
+public struct UsageRow: Sendable, Equatable {
+    public var sessionID: String
+    public var role: StoredMessage.Role
+    public var outputTokens: Int?
+    public var at: Date?
+    public var modelIdentifier: String
+}
+
 public struct InboxRow: Sendable, Equatable {
     public var id: Int64
     public var sessionID: String
@@ -167,7 +196,143 @@ public final class HarnessStore: Sendable {
                 t.column("next_run", .double).notNull()
             }
         }
+        migrator.registerMigration("tasks") { db in
+            try db.alter(table: "messages") { t in
+                t.add(column: "created_at", .double)
+            }
+            try db.create(table: "session_meta") { t in
+                t.column("session_id", .text).primaryKey().references("sessions", onDelete: .cascade)
+                t.column("title", .text)
+                t.column("created_at", .double).notNull()
+                t.column("pinned", .integer).notNull().defaults(to: 0)
+                t.column("parent_id", .text)
+            }
+            try db.execute(
+                sql: "INSERT INTO session_meta (session_id, created_at) SELECT id, ? FROM sessions",
+                arguments: [Date().timeIntervalSince1970]
+            )
+            try db.create(table: "todos") { t in
+                t.column("session_id", .text).notNull().references("sessions", onDelete: .cascade)
+                t.column("position", .integer).notNull()
+                t.column("content", .text).notNull()
+                t.column("status", .text).notNull()
+                t.primaryKey(["session_id", "position"])
+            }
+        }
         return migrator
+    }
+
+    public func replaceTodos(sessionID: String, _ items: [TodoItem]) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM todos WHERE session_id = ?", arguments: [sessionID])
+            for (position, item) in items.enumerated() {
+                try db.execute(
+                    sql: "INSERT INTO todos (session_id, position, content, status) VALUES (?, ?, ?, ?)",
+                    arguments: [sessionID, position, item.content, item.status.rawValue]
+                )
+            }
+        }
+    }
+
+    public func todos(sessionID: String) throws -> [TodoItem] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT content, status FROM todos WHERE session_id = ? ORDER BY position ASC",
+                arguments: [sessionID]
+            ).map { row in
+                TodoItem(content: row["content"], status: TodoItem.Status(rawValue: row["status"]) ?? .pending)
+            }
+        }
+    }
+
+    public func sessionSummaries() throws -> [SessionSummary] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                SELECT s.id, s.project_path, m.title, m.created_at, m.pinned,
+                    (SELECT COUNT(*) FROM messages WHERE session_id = s.id) AS message_count,
+                    (SELECT text FROM messages WHERE session_id = s.id AND role = 'user'
+                        ORDER BY ordinal ASC LIMIT 1) AS first_prompt,
+                    (SELECT MAX(created_at) FROM messages WHERE session_id = s.id) AS last_activity
+                FROM sessions s LEFT JOIN session_meta m ON m.session_id = s.id
+                WHERE m.parent_id IS NULL
+                """
+            )
+            return rows.map { row in
+                let created = Date(timeIntervalSince1970: row["created_at"] ?? 0)
+                let last: Double? = row["last_activity"]
+                return SessionSummary(
+                    id: row["id"],
+                    projectPath: row["project_path"],
+                    title: row["title"],
+                    firstPrompt: row["first_prompt"],
+                    createdAt: created,
+                    lastActivity: last.map(Date.init(timeIntervalSince1970:)) ?? created,
+                    pinned: (row["pinned"] as Int?) == 1,
+                    messageCount: row["message_count"]
+                )
+            }
+            .sorted { $0.lastActivity > $1.lastActivity }
+        }
+    }
+
+    public func setSessionTitle(id: String, title: String?) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE session_meta SET title = ? WHERE session_id = ?",
+                arguments: [title, id]
+            )
+        }
+    }
+
+    /// A subagent's child session. Children are not tasks of their own.
+    public func setSessionParent(id: String, parentID: String) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE session_meta SET parent_id = ? WHERE session_id = ?",
+                arguments: [parentID, id]
+            )
+        }
+    }
+
+    public func setSessionPinned(id: String, pinned: Bool) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE session_meta SET pinned = ? WHERE session_id = ?",
+                arguments: [pinned ? 1 : 0, id]
+            )
+        }
+    }
+
+    public func deleteSession(id: String) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM sessions WHERE id = ?", arguments: [id])
+        }
+    }
+
+    /// Every stored message with its session, model and time, oldest first. Rows from before `created_at` existed have no date.
+    public func usageRows() throws -> [UsageRow] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                SELECT m.session_id, m.role, m.output_tokens, m.created_at, s.model_identifier
+                FROM messages m JOIN sessions s ON s.id = m.session_id
+                ORDER BY m.id ASC
+                """
+            ).map { row in
+                let at: Double? = row["created_at"]
+                return UsageRow(
+                    sessionID: row["session_id"],
+                    role: StoredMessage.Role(rawValue: row["role"]) ?? .user,
+                    outputTokens: row["output_tokens"],
+                    at: at.map(Date.init(timeIntervalSince1970:)),
+                    modelIdentifier: row["model_identifier"]
+                )
+            }
+        }
     }
 
     public func insertSession(_ session: SessionRecord) throws {
@@ -198,6 +363,10 @@ public final class HarnessStore: Sendable {
                     session.compactionSummary,
                     session.projectionTailStartOrdinal,
                 ]
+            )
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO session_meta (session_id, created_at) VALUES (?, ?)",
+                arguments: [session.id, Date().timeIntervalSince1970]
             )
         }
     }
@@ -368,8 +537,8 @@ public final class HarnessStore: Sendable {
                 sql: """
                 INSERT INTO messages (
                     session_id, ordinal, role, text, reasoning, tool_calls_json, tool_call_id, tool_name,
-                    epoch_id, output_tokens
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    epoch_id, output_tokens, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     sessionID,
@@ -382,6 +551,7 @@ public final class HarnessStore: Sendable {
                     message.toolName,
                     resolvedEpoch,
                     message.outputTokens,
+                    Date().timeIntervalSince1970,
                 ]
             )
         }

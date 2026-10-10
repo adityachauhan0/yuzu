@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import YuzuHarness
 
+@Suite(.readsMCPHub)
 struct ScheduleTests {
     @Test func nextWeekdayMorningSkipsTheWeekend() {
         var calendar = Calendar(identifier: .gregorian)

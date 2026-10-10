@@ -247,6 +247,11 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             materializeOnly = nil
 
             session = (try? store.session(id: sessionID)) ?? session
+            let model = activeModel()
+            if session.modelMessageCursor > 0, ModelEpochLedger.shared.lastEpoch(of: model) != session.epochID {
+                session.modelMessageCursor = 0
+                try? store.updateSession(session)
+            }
             let delta = (try? contextCoordinator.providerDelta(
                 store: store,
                 sessionID: sessionID,
@@ -272,6 +277,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             ) else {
                 break loop
             }
+            ModelEpochLedger.shared.record(session.epochID, for: model)
 
             session = (try? store.session(id: sessionID)) ?? session
             session.stepCount += 1
@@ -466,6 +472,13 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         materialized: MaterializedTools,
         session: SessionRecord
     ) async -> String {
+        if call.name == TodoTool.definition.name, materialized.allowedNames.contains(call.name) {
+            guard let items = TodoTool.parse(call.arguments) else {
+                return "todowrite needs todos: a list of {content, status}."
+            }
+            try? store.replaceTodos(sessionID: sessionID, items)
+            return TodoTool.summary(items)
+        }
         guard let action = PermissionGate.permissionAction(for: call.name, arguments: call.arguments) else {
             return materialized.settle(call: call)
         }
@@ -644,6 +657,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             try await ModelTurnCoordinator.shared.withTurn {
                 let turn = activeModel()
                 for try await event in turn.complete(request) {
+                    // Leaving the stream cancels the turn, which stops the engine mid-generation.
+                    if isCancelRequested() { break }
                     switch event {
                     case .text(let chunk):
                         text += chunk

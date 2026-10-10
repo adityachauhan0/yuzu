@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import YuzuHarness
 
+@Suite(.readsMCPHub)
 struct TurnTests {
     @Test func toolTurnLimitDefaultsToZero() {
         let request = TurnRequest(

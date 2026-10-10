@@ -29,6 +29,7 @@ enum SubagentRunner {
             contextLength: contextLength
         )
         try? store.insertSession(childSession)
+        try? store.setSessionParent(id: childID, parentID: parentSessionID)
         try? store.appendMessage(sessionID: childID, message: .user(prompt))
 
         let childRunner = SessionRunner(sessionID: childID, store: store, model: model)

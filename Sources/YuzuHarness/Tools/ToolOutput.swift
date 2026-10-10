@@ -1,18 +1,12 @@
 import Foundation
 
 public enum ToolOutput {
-    /// Production cap for model-visible tool output. Tests may lower this via `characterCapForTesting`.
+    /// Cap for model-visible tool output.
     public static let productionCharacterCap = 32_000
-
-    nonisolated(unsafe) public static var characterCapForTesting: Int?
-
-    static var effectiveCharacterCap: Int {
-        characterCapForTesting ?? productionCharacterCap
-    }
 
     /// If `raw` exceeds the cap, writes the full text under Application Support and returns a short message plus the path.
     public static func project(raw: String, sessionID: String, callID: String) -> String {
-        let cap = effectiveCharacterCap
+        let cap = productionCharacterCap
         guard raw.count > cap else { return raw }
 
         let directory = spillDirectory(sessionID: sessionID, callID: callID)

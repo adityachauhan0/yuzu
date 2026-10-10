@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import YuzuHarness
 
+@Suite(.readsMCPHub)
 struct HarnessLoopTests {
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
@@ -242,7 +243,9 @@ struct HarnessLoopTests {
 
         try await waitUntil(timeout: 2) {
             let messages = try store.messages(sessionID: sessionID)
-            return messages.contains { $0.role == StoredMessage.Role.assistant && !$0.toolCalls.isEmpty }
+            let called = messages.contains { $0.role == StoredMessage.Role.assistant && !$0.toolCalls.isEmpty }
+            let steps = try store.session(id: sessionID)?.stepCount
+            return called && steps != 2
         }
 
         let sessionAfterToolCall = try #require(try store.session(id: sessionID))
@@ -355,5 +358,53 @@ struct HarnessLoopTests {
         let toolTexts = try store.messages(sessionID: sessionID).filter { $0.role == StoredMessage.Role.tool }.map(\.text).joined(separator: "\n")
         #expect(toolTexts.contains("inside.txt"))
         #expect(!toolTexts.contains(outside.lastPathComponent))
+    }
+
+    @Test func todowriteStoresTheSessionPlan() async throws {
+        let steps: JSONValue = .object([
+            "todos": .array([
+                .object(["content": .string("Read the parser"), "status": .string("completed")]),
+                .object(["content": .string("Fix the bug"), "status": .string("in_progress")]),
+                .object(["content": .string("Run tests"), "status": .string("pending")]),
+            ]),
+        ])
+        let (store, runner, script, sessionID, _) = try makeRunner(
+            turns: [
+                AssistantTurn(text: "", toolCalls: [ToolCall(id: "t1", name: "todowrite", arguments: steps)]),
+                AssistantTurn(text: "planned"),
+            ]
+        )
+        await runner.prompt("plan it", delivery: .queue)
+        await runner.run()
+
+        #expect(script.requests[0].tools.contains { $0.name == "todowrite" })
+        let todos = try store.todos(sessionID: sessionID)
+        #expect(todos.map(\.content) == ["Read the parser", "Fix the bug", "Run tests"])
+        #expect(todos.map(\.status) == [.completed, .inProgress, .pending])
+        let result = try store.messages(sessionID: sessionID).first { $0.role == .tool }
+        #expect(result?.text == "Updated tasks: 1 of 3 done.")
+    }
+
+    @Test func sessionsSharingOneModelReplayTheirHistoryAfterASwitch() async throws {
+        let (store, first, script, firstID, project) = try makeRunner(
+            turns: [AssistantTurn(text: "a1"), AssistantTurn(text: "b1"), AssistantTurn(text: "a2")]
+        )
+        try store.insertSession(
+            SessionRecord(
+                id: "session-2", projectPath: project.path, agentID: "build", modelIdentifier: "test",
+                epochID: "epoch-2", stepCount: 0, supportsMultipleToolCalls: true,
+                status: .idle, modelMessageCursor: 0
+            )
+        )
+        let second = SessionRunner(sessionID: "session-2", store: store, model: script)
+
+        await first.prompt("first question", delivery: .steer)
+        await second.prompt("other task", delivery: .steer)
+        await first.prompt("follow up", delivery: .steer)
+
+        #expect(script.requests.map(\.epochID) == ["epoch-1", "epoch-2", "epoch-1"])
+        let replayed = script.requests[2].delta.filter { $0.role != .system }.map(\.text)
+        #expect(replayed == ["first question", "a1", "follow up"])
+        #expect(try store.messages(sessionID: firstID).map(\.text) == ["first question", "a1", "follow up", "a2"])
     }
 }

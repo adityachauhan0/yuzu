@@ -14,9 +14,18 @@ public enum UzuTurnError: Error, Equatable, Sendable {
 public final class UzuTurn: ModelTurn, @unchecked Sendable {
     public let backing: ModelBacking = .uzu
     public static let evalModelIdentifier = "alibaba:qwen3.5:0.8b:mirai:mirai-m:4"
+    /// What every reply asks the engine to sample with. Settings shows this for the loaded model.
+    fileprivate static let sampling = SamplingMethod.greedy
+    public static var samplingLabel: String {
+        switch sampling {
+        case .greedy: "greedy"
+        case .stochastic: "stochastic"
+        }
+    }
 
     private let gate: TurnGate
     private let cache = CacheGeneration()
+    private let turns = TurnQueue()
 
     init(engine: Engine, model: Model) {
         self.gate = TurnGate(engine: engine, model: model)
@@ -48,8 +57,9 @@ public final class UzuTurn: ModelTurn, @unchecked Sendable {
     public func complete(_ request: TurnRequest) -> AsyncThrowingStream<TurnEvent, Error> {
         let gate = self.gate
         let generation = cache.current
+        let turns = self.turns
         return AsyncThrowingStream { continuation in
-            let task = Task {
+            let task = turns.enqueue {
                 do {
                     try await gate.run(request, generation: generation) { event in
                         continuation.yield(event)
@@ -72,6 +82,25 @@ public final class UzuTurn: ModelTurn, @unchecked Sendable {
     }
 }
 
+/// A cancelled consumer returns before the engine stream drains, and `TurnGate` is
+/// reentrant across awaits, so each turn starts only after the previous one ends.
+private final class TurnQueue: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last: Task<Void, Never>?
+
+    func enqueue(_ body: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
+        lock.lock()
+        defer { lock.unlock() }
+        let previous = last
+        let task = Task {
+            await previous?.value
+            await body()
+        }
+        last = task
+        return task
+    }
+}
+
 private final class CacheGeneration: @unchecked Sendable {
     private let lock = NSLock()
     private var generation: UInt64 = 0
@@ -90,14 +119,27 @@ private final class CacheGeneration: @unchecked Sendable {
 }
 
 private actor TurnGate {
+    private enum Start {
+        /// The session already holds everything before this delta.
+        case warm
+        /// The harness rewound its cursor; the delta carries the whole epoch.
+        case clean
+        /// The session was rebuilt mid-epoch; replay what it held before.
+        case replay
+    }
+
     private let engine: Engine
     private let model: Model
     private var session: ChatSession?
     private var epochID: String?
     private var tools: [ToolDefinition] = []
     private var contextLength: Int?
+    private var effort: Uzu.ReasoningEffort?
     private var appliedGeneration: UInt64 = 0
-    private var effortOverride: YuzuHarness.ReasoningEffort?
+    private var broken = false
+    private var leadingSystem: String?
+    /// Everything after the leading system message that this epoch's session has accepted.
+    private var transcript: [StoredMessage] = []
 
     init(engine: Engine, model: Model) {
         self.engine = engine
@@ -109,62 +151,98 @@ private actor TurnGate {
         generation: UInt64,
         yield: @Sendable (TurnEvent) -> Void
     ) async throws {
-        let includeTools = try await prepare(request, generation: generation)
-        let effort = effortOverride ?? request.reasoningEffort
-        let messages = try messages(for: request, includeTools: includeTools, effort: effort)
+        let start = try await prepare(request, generation: generation)
+        let (messages, accepted) = try messages(for: request, start: start)
         // Greedy keeps the small eval model on the tool call instead of a prose echo.
         let config = ChatReplyConfig.create()
-            .withSamplingMethod(samplingMethod: .greedy)
+            .withSamplingMethod(samplingMethod: UzuTurn.sampling)
             .withToolTurnLimit(toolTurnLimit: 0)
         guard let session else {
             throw UzuTurnError.session("Chat session was not created")
         }
+        broken = true
         let stream = await session.replyWithStream(input: messages, config: config)
         var latest: ChatMessage?
         var stats: ChatReplyStats?
         var textSent = ""
         var reasoningSent = ""
-        for try await chunk in stream.iterator() {
-            try Task.checkCancellation()
-            switch chunk {
-            case .replies(let replies):
-                guard let reply = replies.last else { continue }
-                latest = reply.message
-                stats = reply.stats
-                textSent = emitDelta(reply.message.text() ?? "", sent: textSent) { yield(.text($0)) }
-                reasoningSent = emitDelta(reply.message.reasoning() ?? "", sent: reasoningSent) {
-                    yield(.reasoning($0))
+        // Cancelling stops sampling; the stream still runs to its end so the session
+        // leaves the generation state before the next reset.
+        try await withTaskCancellationHandler {
+            for try await chunk in stream.iterator() {
+                switch chunk {
+                case .replies(let replies):
+                    guard let reply = replies.last, !Task.isCancelled else { continue }
+                    latest = reply.message
+                    stats = reply.stats
+                    textSent = emitDelta(reply.message.text() ?? "", sent: textSent) { yield(.text($0)) }
+                    reasoningSent = emitDelta(reply.message.reasoning() ?? "", sent: reasoningSent) {
+                        yield(.reasoning($0))
+                    }
+                case .error(let error):
+                    if Task.isCancelled { continue }
+                    throw UzuTurnError.session(String(describing: error))
                 }
-            case .error(let error):
-                throw UzuTurnError.session(String(describing: error))
             }
+        } onCancel: {
+            stream.cancelToken().cancel()
         }
+        try Task.checkCancellation()
         guard let latest else {
             throw UzuTurnError.emptyReply
         }
-        yield(.finished(assistantTurn(from: latest, stats: stats)))
+        let turn = assistantTurn(from: latest, stats: stats)
+        transcript.append(contentsOf: accepted)
+        transcript.append(.assistant(turn))
+        broken = false
+        yield(.finished(turn))
     }
 
-    private func prepare(_ request: TurnRequest, generation: UInt64) async throws -> Bool {
-        let toolsChanged = tools != request.tools
-        let epochChanged = epochID != request.epochID
-        let generationChanged = generation != appliedGeneration
-        let contextChanged = contextLength != request.contextLength
-        var includeTools = false
+    private func prepare(_ request: TurnRequest, generation: UInt64) async throws -> Start {
+        let wantedEffort = engineEffort(request.reasoningEffort)
+        let rewound = epochID != request.epochID || generation != appliedGeneration
+        let rebuilt = broken
+            || tools != request.tools
+            || effort != wantedEffort
+            || contextLength != request.contextLength
 
-        if session == nil || contextChanged {
+        var start = Start.warm
+        if session == nil || contextLength != request.contextLength {
+            let created = session == nil
             session = try await engine.chat(model: model, config: chatConfig(request.contextLength))
-            contextLength = request.contextLength
-            includeTools = true
-        } else if generationChanged || epochChanged || toolsChanged {
-            try await session?.reset()
-            includeTools = true
+            start = rewound || created ? .clean : .replay
+        } else if let current = session, rewound || rebuilt {
+            if await settled(current) {
+                try await current.reset()
+            } else {
+                session = try await engine.chat(model: model, config: chatConfig(request.contextLength))
+            }
+            start = rewound ? .clean : .replay
+        }
+        if transcript.isEmpty, leadingSystem == nil, start == .replay {
+            start = .clean
+        }
+        if start == .clean, epochID != request.epochID {
+            leadingSystem = nil
         }
 
         appliedGeneration = generation
         epochID = request.epochID
         tools = request.tools
-        return includeTools
+        effort = wantedEffort
+        contextLength = request.contextLength
+        broken = false
+        return start
+    }
+
+    /// A cancelled stream can end before the session leaves `generation`, and `reset` refuses until it does.
+    private func settled(_ session: ChatSession) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(30)
+        while await session.state() != .idle {
+            guard ContinuousClock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return true
     }
 
     private func chatConfig(_ contextLength: Int) -> ChatConfig {
@@ -174,31 +252,54 @@ private actor TurnGate {
         return ChatConfig.create().withContextLength(contextLength: length)
     }
 
-    private func messages(for request: TurnRequest, includeTools: Bool, effort: YuzuHarness.ReasoningEffort) throws -> [ChatMessage] {
-        // Qwen's template accepts one system message, and only when it is first.
-        // Tools ride on a developer message, which this renderer keeps out of that list.
-        // A tool result stays behind the assistant call that requested it.
-        var systemParts: [String] = []
-        var conversation: [StoredMessage] = []
-        for message in request.delta {
+    /// Returns the input for the session and the delta messages it will hold after a reply.
+    private func messages(for request: TurnRequest, start: Start) throws -> ([ChatMessage], [StoredMessage]) {
+        // The session keeps every message it was sent, and Qwen's template rejects a
+        // system message anywhere but first. Only a fresh session gets one; later
+        // system text is delivered as a user-side reminder, which every role accepts next.
+        var delta = request.delta[...]
+        if let first = delta.first, first.role == .system {
+            if start == .clean {
+                leadingSystem = first.text
+                delta = delta.dropFirst()
+            } else if first.text == leadingSystem {
+                delta = delta.dropFirst()
+            }
+        }
+
+        var messages: [ChatMessage] = []
+        var history: [StoredMessage] = []
+        switch start {
+        case .warm:
+            break
+        case .clean:
+            transcript = []
+            messages.append(leadingSystemMessage())
+            messages.append(try toolNamespaceMessage(request.tools))
+        case .replay:
+            messages.append(leadingSystemMessage())
+            messages.append(try toolNamespaceMessage(request.tools))
+            history = transcript
+        }
+        for message in history + delta {
             switch message.role {
             case .system, .developer:
                 if !message.text.isEmpty {
-                    systemParts.append(message.text)
+                    messages.append(ChatMessage.user().withText(text: "<system-reminder>\n\(message.text)\n</system-reminder>"))
                 }
             case .user, .assistant, .tool:
-                conversation.append(message)
+                messages.append(try chatMessage(message))
             }
         }
-        var messages: [ChatMessage] = []
-        if !systemParts.isEmpty {
-            messages.append(ChatMessage.system().withText(text: systemParts.joined(separator: "\n\n")))
+        return (messages, Array(delta))
+    }
+
+    private func leadingSystemMessage() -> ChatMessage {
+        var message = ChatMessage.system().withReasoningEffort(reasoningEffort: effort ?? .default)
+        if let leadingSystem, !leadingSystem.isEmpty {
+            message = message.withText(text: leadingSystem)
         }
-        if includeTools {
-            messages.append(try toolNamespaceMessage(request.tools))
-        }
-        messages.append(contentsOf: try conversation.map { try chatMessage($0, effort: effort) })
-        return messages
+        return message
     }
 
     private func toolNamespaceMessage(_ tools: [ToolDefinition]) throws -> ChatMessage {
@@ -216,10 +317,7 @@ private actor TurnGate {
         return ChatMessage.developer().withToolNamespaces(toolNamespaces: [namespace])
     }
 
-    private func chatMessage(
-        _ message: StoredMessage,
-        effort: YuzuHarness.ReasoningEffort
-    ) throws -> ChatMessage {
+    private func chatMessage(_ message: StoredMessage) throws -> ChatMessage {
         switch message.role {
         case .system:
             var chat = ChatMessage.system()
@@ -282,14 +380,12 @@ private actor TurnGate {
         )
     }
 
+    /// Qwen's renderer maps only `disabled` and `default` to `enable_thinking`; any other value fails the render.
+    /// So Low answers without thinking, and Medium and above think.
     private func engineEffort(_ effort: YuzuHarness.ReasoningEffort) -> Uzu.ReasoningEffort {
         switch effort {
-        case .disabled: .disabled
-        case .default: .default
-        case .low: .low
-        case .medium: .medium
-        case .high: .high
-        case .xHigh: .xHigh
+        case .disabled, .low: return .disabled
+        case .medium, .high, .xHigh, .default: return .default
         }
     }
 

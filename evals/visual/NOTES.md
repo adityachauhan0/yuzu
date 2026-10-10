@@ -75,6 +75,10 @@ Empty panels match in spirit (no project / no artifacts + CTA); golden uses pane
 
 **G2 and G5** composer tools and Customize toolbar match the handoff controls in dark actuals (recaptured 2026-10-10). **G1–G8** have dark actuals; light actuals now include **code-home**, **cowork-task**, **scheduled-empty**, **cowork-projects**, **cowork-artifacts**, **settings-code**, and **settings-general** (plus earlier **cowork-new** and **customize-skills**). Harness accessibility tests **V1–V9** remain green.
 
+## Window chrome and G7 recaptured
+
+`code-home-*.png` and `settings-code-*.png` were recaptured after two changes. The title bar is hidden, and the window's real traffic lights sit in the sidebar's 54pt bar where the handoff draws them (`WindowChrome`). The drawn duplicate circles are gone. When the sidebar is collapsed, a reopen button sits beside the lights, and ⌃⌘S toggles it. G7 now has the handoff's light and dark code-theme pickers with the `greet` diff previews. The choice persists in `appearance.json` and colors fenced code in the transcript.
+
 ## Still open (summary)
 
 - Pixel spacing and font metrics vs handoff HTML across all routes.

@@ -9,10 +9,16 @@ struct TaskThreadView: View {
     let width: CGFloat
     @State private var renameOpen = false
     @State private var renameDraft = ""
+    @State private var titleMenuOpen = false
+    @State private var addMenuOpen = false
+    @State private var modelMenuOpen = false
+    @State private var attachments: [String] = []
 
     private var presentation: InspectorPresentation {
         model.inspectorPresentation(width: model.contentWidth)
     }
+
+    private var isDark: Bool { model.isDarkAppearance }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -20,7 +26,10 @@ struct TaskThreadView: View {
                 threadColumn
                 if presentation == .beside, model.inspectorOpen {
                     inspectorPanel
-                        .frame(width: 390)
+                        .frame(width: 376)
+                        .padding(.top, 9)
+                        .padding(.leading, 4)
+                        .padding(.trailing, 10)
                 }
             }
             if presentation == .overlay, model.inspectorOpen {
@@ -29,193 +38,548 @@ struct TaskThreadView: View {
                     .padding(.top, 60)
                     .padding(.trailing, 10)
             }
+            if renameOpen {
+                renameDialog
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityID("inspector-layout-\(presentation.rawValue)")
+        .dismissesOnEscape($titleMenuOpen)
+        .dismissesOnEscape($addMenuOpen)
+        .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnEscape($renameOpen)
     }
+
+    // MARK: Thread
 
     private var threadColumn: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button {
-                    model.inspectorOpen.toggle()
-                } label: {
-                    Image(systemName: "sidebar.right")
-                }
-                .buttonStyle(.plain)
-                Menu {
-                    Button("Rename") {
-                        renameDraft = model.taskTitle
-                        renameOpen = true
+            threadTop
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        let items = ThreadItem.build(model.transcript)
+                        ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                            threadItem(item, index: index, isLast: index == items.count - 1)
+                        }
+                        Color.clear.frame(height: 1).id("thread-end")
                     }
-                    Button("Pin") { model.taskPinned.toggle() }
-                    Button("Normal") { model.transcriptView = "Normal" }
-                    Button("Thinking") { model.transcriptView = "Thinking" }
-                    Button("Verbose") { model.transcriptView = "Verbose" }
-                    Button("Delete") { model.deleteCurrentTask() }
-                } label: {
-                    Text(model.taskTitle)
-                        .font(.system(size: 16, weight: .medium))
+                    .frame(maxWidth: min(900, model.transcriptColumnMax), alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 44)
+                    .padding(.bottom, 72)
                 }
-                .accessibilityID("thread-title")
-                Spacer()
-            }
-            .padding()
-            .foregroundStyle(colors.text)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(Array(model.transcript.enumerated()), id: \.offset) { _, message in
-                        threadBubble(message)
-                    }
+                .onChange(of: model.transcript) { _, _ in
+                    proxy.scrollTo("thread-end", anchor: .bottom)
                 }
-                .frame(maxWidth: model.transcriptColumnMax, alignment: .leading)
-                .padding()
-            }
-            .onAppear { model.reloadTranscript() }
-            .overlay {
-                if renameOpen {
-                    renameDialog
+                .onAppear {
+                    model.reloadTranscript()
+                    proxy.scrollTo("thread-end", anchor: .bottom)
                 }
             }
-
-            VStack(spacing: 8) {
-                TextField("Write a message…", text: $model.threadDraft, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(YuzuFonts.interface(model.interfaceFont, size: 16))
-                    .padding(12)
-                    .background(colors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .onSubmit { Task { await model.submitThread() } }
-                if model.turnRunning {
-                    Button("Stop") {
-                        Task { await model.stopTurn() }
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 14))
-                    .foregroundStyle(colors.text)
-                    .accessibilityID("stop-turn")
-                }
-                Text(AppModel.disclaimer)
-                    .font(.system(size: 13))
-                    .foregroundStyle(colors.dim)
-                    .multilineTextAlignment(.center)
-                    .accessibilityID("task-disclaimer", label: AppModel.disclaimer)
-            }
-            .padding()
+            threadBottom
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private func threadBubble(_ message: StoredMessage) -> some View {
-        switch message.role {
-        case .user:
-            Text(message.text)
-                .font(YuzuFonts.interface(model.interfaceFont, size: 16))
+    private var threadTop: some View {
+        HStack {
+            Button {
+                titleMenuOpen.toggle()
+            } label: {
+                HStack(spacing: 9) {
+                    Text(model.taskTitle)
+                        .font(YuzuFonts.interface(model.interfaceFont, size: 17))
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11))
+                }
+                .frame(minHeight: 44)
                 .foregroundStyle(colors.text)
-                .padding()
+            }
+            .buttonStyle(.plain)
+            .accessibilityID("thread-title")
+            Spacer()
+            Button {
+                model.inspectorOpen.toggle()
+            } label: {
+                Image(systemName: "sidebar.right")
+                    .font(.system(size: 14))
+                    .frame(width: 36, height: 36)
+                    .background(model.inspectorOpen ? colors.toggleOn : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .foregroundStyle(model.inspectorOpen ? colors.toggleOnText : colors.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityID("thread-layout", label: "Toggle task details")
+        }
+        .padding(.horizontal, 22)
+        .frame(height: 62)
+        .overlay(alignment: .topLeading) {
+            if titleMenuOpen {
+                HandoffPopover(colors: colors) {
+                    HandoffMenuLabel(title: "Tasks", colors: colors)
+                    titleRow("Rename", id: "thread-menu-rename") {
+                        renameDraft = model.taskTitle
+                        renameOpen = true
+                    }
+                    titleRow(model.taskPinned ? "Unpin" : "Pin", id: "thread-menu-pin") { model.togglePinCurrentTask() }
+                    titleRow("Normal", id: "thread-menu-normal", checked: model.transcriptView == "Normal") {
+                        model.transcriptView = "Normal"
+                    }
+                    titleRow("Thinking", id: "thread-menu-thinking", checked: model.transcriptView == "Thinking") {
+                        model.transcriptView = "Thinking"
+                    }
+                    titleRow("Verbose", id: "thread-menu-verbose", checked: model.transcriptView == "Verbose") {
+                        model.transcriptView = "Verbose"
+                    }
+                    titleRow("Delete", id: "thread-menu-delete") { model.deleteCurrentTask() }
+                }
+                .frame(width: 220)
+                .padding(.top, 54)
+                .padding(.leading, 18)
+            }
+        }
+        .zIndex(2)
+    }
+
+    private func titleRow(_ title: String, id: String, checked: Bool = false, action: @escaping () -> Void) -> some View {
+        HandoffPopoverRow(title: checked ? "\(title)  ✓" : title, colors: colors) {
+            titleMenuOpen = false
+            action()
+        }
+        .accessibilityID(id)
+    }
+
+    @ViewBuilder
+    private func threadItem(_ item: ThreadItem, index: Int, isLast: Bool) -> some View {
+        switch item {
+        case .user(let text):
+            Text(text)
+                .font(YuzuFonts.interface(model.interfaceFont, size: model.transcriptFontSize + 1))
+                .lineSpacing(5)
+                .foregroundStyle(colors.softText)
+                .textSelection(.enabled)
+                .padding(.vertical, 13)
+                .padding(.horizontal, 19)
+                .background(colors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
                 .frame(maxWidth: .infinity, alignment: .trailing)
-        case .assistant:
-            VStack(alignment: .leading, spacing: 6) {
-                if model.transcriptView != "Normal", !message.reasoning.isEmpty {
-                    Text(message.reasoning)
-                        .font(.system(size: 13))
+                .padding(.trailing, 18)
+                .padding(.leading, 80)
+                .padding(.top, index == 0 ? 0 : 48)
+                .accessibilityID("thread-user")
+        case .reply(let text, let reasoning):
+            VStack(alignment: .leading, spacing: 0) {
+                if model.transcriptView != "Normal", !reasoning.isEmpty {
+                    Text(reasoning)
+                        .font(replyFont(size: model.transcriptFontSize + 1))
                         .foregroundStyle(colors.dim)
+                        .textSelection(.enabled)
+                        .padding(.bottom, 12)
+                        .accessibilityID("thread-reasoning")
                 }
-                if !message.text.isEmpty {
-                    Text(message.text)
-                        .font(model.chatFont == "System" ? .system(size: model.transcriptFontSize) : .custom("Georgia", size: model.transcriptFontSize))
-                        .foregroundStyle(colors.text)
+                ForEach(Array(FencedText.segments(text).enumerated()), id: \.offset) { _, segment in
+                    switch segment {
+                    case .prose(let prose):
+                        Text(prose)
+                            .font(replyFont(size: model.transcriptFontSize + 4))
+                            .lineSpacing(4)
+                            .foregroundStyle(colors.text)
+                            .textSelection(.enabled)
+                    case .code(let code):
+                        CodeBlockView(
+                            code: code,
+                            theme: model.activeCodeTheme(dark: isDark),
+                            codeFont: model.codeFont,
+                            size: model.transcriptFontSize - 2
+                        )
+                        .padding(.vertical, 6)
+                    }
                 }
-                if model.transcriptView == "Verbose", !message.toolCalls.isEmpty {
-                    Text(message.toolCalls.map { "\($0.name) \($0.arguments)" }.joined(separator: "\n"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(colors.muted)
+                if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                        model.showToast("Copied response.")
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 13))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.dim)
+                    .padding(.top, 12)
+                    .padding(.leading, -6)
+                    .accessibilityID("thread-copy", label: "Copy response")
+                }
+                if isLast, !model.turnRunning,
+                   let mark = HandoffImage.coworkLogo(dark: isDark, width: 39) {
+                    mark.resizable().scaledToFit()
+                        .frame(width: 39, height: 39)
+                        .padding(.top, 34)
+                        .accessibilityHidden(true)
+                        .accessibilityID("thread-brand")
                 }
             }
-            .padding()
-            .background(colors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        case .tool:
-            Text(message.toolName == "bash"
-                 ? "Updated tasks, ran \(model.commandCount) command\(model.commandCount == 1 ? "" : "s")."
-                 : (message.toolName.map { "Ran \($0)" } ?? "Ran a tool"))
-                .font(.system(size: 13))
-                .foregroundStyle(colors.muted)
-        case .system, .developer:
-            EmptyView()
+            .padding(.top, index == 0 ? 0 : 12)
+            .accessibilityID("thread-reply")
+        case .activity(let summary, let calls):
+            VStack(alignment: .leading, spacing: 6) {
+                Text(summary)
+                    .font(.system(size: 16))
+                    .foregroundStyle(colors.dim)
+                if model.transcriptView == "Verbose" {
+                    ForEach(Array(calls.enumerated()), id: \.offset) { _, call in
+                        Text("\(call.name) \(call.arguments.compactText)")
+                            .font(YuzuFonts.code(model.codeFont, size: 13))
+                            .foregroundStyle(colors.muted)
+                            .textSelection(.enabled)
+                            .lineLimit(4)
+                    }
+                }
+            }
+            .padding(.top, index == 0 ? 0 : 28)
+            .accessibilityID("thread-activity", label: summary)
         }
     }
 
-    private var inspectorPanel: some View {
-        let folder = URL(fileURLWithPath: model.workspaceProjectPath).lastPathComponent
-        return VStack(alignment: .leading, spacing: 0) {
-            Text("Task details")
-                .font(.system(size: 16, weight: .medium))
-                .padding()
-            Text("Progress")
-                .padding(.horizontal)
-            Text("Progress on longer tasks appears here.")
-                .font(.system(size: 14))
-                .foregroundStyle(colors.dim)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-            Divider()
-            HStack {
-                Text(folder.isEmpty ? "Project" : folder)
-                Spacer()
-                Button("Open") {
-                    let path = model.workspaceProjectPath
-                    guard !path.isEmpty else { return }
-                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
-                }
-                .buttonStyle(.plain)
-                .accessibilityID("inspector-open-folder")
-            }
-            .padding(.horizontal)
-            .padding(.top, 12)
-            if model.createdArtifactPaths.isEmpty {
-                Text("View and open files created during this task.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(colors.dim)
-                    .padding(.horizontal)
-                    .padding(.bottom, 12)
-            } else {
-                ForEach(model.createdArtifactPaths, id: \.self) { path in
-                    Button(URL(fileURLWithPath: path).lastPathComponent) {
-                        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    private func replyFont(size: CGFloat) -> Font {
+        YuzuFonts.chat(model.chatFont, size: size)
+    }
+
+    private var threadBottom: some View {
+        let ready = !model.threadDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                TextField("Write a message…", text: $model.threadDraft, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(YuzuFonts.interface(model.interfaceFont, size: 17))
+                    .foregroundStyle(colors.text)
+                    .lineLimit(2...7)
+                    .padding(.horizontal, 23)
+                    .padding(.top, 20)
+                    .padding(.bottom, 4)
+                    .frame(minHeight: 65, alignment: .top)
+                    .onKeyPress { press in
+                        guard press.key == .return, !press.modifiers.contains(.shift) else { return .ignored }
+                        send()
+                        return .handled
+                    }
+                    .accessibilityID("thread-input", label: "Write a message")
+                HStack(spacing: 14) {
+                    Button {
+                        addMenuOpen.toggle()
+                        modelMenuOpen = false
+                    } label: {
+                        Image(systemName: "plus").font(.system(size: 19)).frame(width: 28, height: 32)
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 14))
-                    .foregroundStyle(colors.text)
-                    .padding(.horizontal)
+                    .foregroundStyle(colors.softText)
+                    .accessibilityID("thread-add", label: "Add to message")
+                    Button(action: chooseProject) {
+                        Image(systemName: "folder.badge.plus").font(.system(size: 16)).frame(width: 28, height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.softText)
+                    .accessibilityID("thread-project", label: "Add a project")
+                    Spacer()
+                    Button {
+                        modelMenuOpen.toggle()
+                        addMenuOpen = false
+                    } label: {
+                        Text(model.modelDisplayName).font(.system(size: 16)).lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.softText)
+                    .accessibilityID("thread-model-button")
+                    Text(model.coworkEffortLabel)
+                        .font(.system(size: 16))
+                        .foregroundStyle(colors.subtle)
+                        .accessibilityID("thread-effort")
+                    if model.turnRunning, !ready {
+                        Button {
+                            Task { await model.stopTurn() }
+                        } label: {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 13))
+                                .frame(width: 37, height: 37)
+                                .background(colors.accent)
+                                .foregroundStyle(colors.onAccent)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 10)
+                        .accessibilityID("stop-turn", label: "Stop")
+                    } else {
+                        Button(action: send) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(width: 37, height: 37)
+                                .background(ready ? colors.accent : colors.sendIdle)
+                                .foregroundStyle(ready ? colors.onAccent : colors.sendIdleText)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 10)
+                        .accessibilityID(ready ? "thread-send-ready" : "thread-send", label: "Send message")
+                    }
                 }
-                .padding(.bottom, 12)
+                .padding(.leading, 20)
+                .padding(.trailing, 18)
+                .padding(.bottom, 10)
+                .frame(minHeight: 51)
             }
-            Divider()
-            Text("Context")
-                .padding(.horizontal)
-                .padding(.top, 12)
-            if model.referencedToolNames.isEmpty {
-                Text("Track tools and referenced files used in this task.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(colors.dim)
-                    .padding(.horizontal)
-            } else {
-                ForEach(model.referencedToolNames, id: \.self) { name in
-                    Text(name)
-                        .font(.system(size: 14))
-                        .foregroundStyle(colors.muted)
-                        .padding(.horizontal)
+            .frame(minHeight: 118)
+            .background(colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).stroke(colors.line, lineWidth: 1))
+            .overlay(alignment: .bottomLeading) {
+                if addMenuOpen {
+                    HandoffPopover(colors: colors) {
+                        HandoffMenuLabel(title: "Add to message", colors: colors)
+                        HandoffPopoverRow(title: "Attach a file", colors: colors) {
+                            addMenuOpen = false
+                            attachFile()
+                        }
+                        .accessibilityID("thread-attach-file")
+                        HandoffPopoverRow(title: "Choose a project", colors: colors) {
+                            addMenuOpen = false
+                            chooseProject()
+                        }
+                        .accessibilityID("thread-choose-project")
+                    }
+                    .frame(width: 220)
+                    .padding(.bottom, 56)
+                    .padding(.leading, 16)
                 }
             }
-            Spacer()
+            .overlay(alignment: .bottomTrailing) {
+                if modelMenuOpen {
+                    HandoffPopover(colors: colors) {
+                        HandoffMenuLabel(title: "Model and effort", colors: colors)
+                        ForEach(["High", "Medium", "Low"], id: \.self) { effort in
+                            HandoffPopoverRow(title: "\(model.modelDisplayName) · \(effort)", colors: colors) {
+                                model.reasoningEffort = ReasoningEffort.fromLabel(effort)
+                                modelMenuOpen = false
+                            }
+                        }
+                    }
+                    .frame(width: 300)
+                    .padding(.bottom, 56)
+                    .padding(.trailing, 57)
+                }
+            }
+
+            if !attachments.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(attachments, id: \.self) { path in
+                        Text(URL(fileURLWithPath: path).lastPathComponent)
+                            .font(.system(size: 13))
+                            .foregroundStyle(colors.dim)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
+                .padding(.leading, 23)
+                .accessibilityID("thread-attachments")
+            }
+
+            Text(AppModel.disclaimer)
+                .font(.system(size: 13))
+                .foregroundStyle(colors.dim)
+                .multilineTextAlignment(.center)
+                .padding(.top, 8)
+                .accessibilityID("task-disclaimer", label: AppModel.disclaimer)
         }
-        .background(colors.surface)
+        .frame(maxWidth: min(920, width - 48))
+        .padding(.bottom, 7)
+        .zIndex(1)
+    }
+
+    private func send() {
+        let body = ComposerContext.prompt(model.threadDraft, attachments: attachments)
+        guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        model.threadDraft = ""
+        attachments = []
+        Task { await model.sendPrompt(body) }
+    }
+
+    private func attachFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK {
+            attachments.append(contentsOf: panel.urls.map(\.path).filter { !attachments.contains($0) })
+        }
+    }
+
+    private func chooseProject() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url, !attachments.contains(url.path) {
+            attachments.append(url.path)
+        }
+    }
+
+    // MARK: Inspector
+
+    private var inspectorPanel: some View {
+        let folder = URL(fileURLWithPath: model.workspaceProjectPath).lastPathComponent
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                InspectorSection(title: "Progress", colors: colors) {
+                    if !model.todos.isEmpty {
+                        progressMarks
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(model.todos.enumerated()), id: \.offset) { _, step in
+                                Text(step.content)
+                                    .font(.system(size: 14))
+                                    .strikethrough(step.status == .completed)
+                                    .foregroundStyle(step.status == .inProgress ? colors.text : colors.dim)
+                            }
+                        }
+                        .padding(.horizontal, 15)
+                        .padding(.top, 14)
+                        .padding(.bottom, 12)
+                        .accessibilityID("inspector-todos")
+                    } else {
+                        progressMarks
+                        helpLine("Progress on longer tasks appears here.")
+                            .padding(.top, 41)
+                    }
+                }
+                InspectorSection(
+                    title: folder.isEmpty ? "Project" : folder,
+                    colors: colors,
+                    trailing: AnyView(
+                        Button {
+                            let path = model.workspaceProjectPath
+                            guard !path.isEmpty else { return }
+                            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                        } label: {
+                            Image(systemName: "folder").font(.system(size: 15)).frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(colors.subtle)
+                        .padding(.trailing, 13)
+                        .accessibilityID("inspector-open-folder", label: "Open \(folder) project")
+                    )
+                ) {
+                    ForEach(model.createdArtifactPaths, id: \.self) { path in
+                        fileRow(path)
+                    }
+                    helpLine("View and open files created during this task.")
+                        .padding(.top, 2)
+                        .padding(.bottom, 5)
+                }
+                InspectorSection(title: "Context", colors: colors) {
+                    ForEach(model.referencedFiles, id: \.self) { path in
+                        fileRow(path)
+                    }
+                    if !model.referencedToolNames.isEmpty {
+                        Text(model.referencedToolNames.joined(separator: " · "))
+                            .font(.system(size: 14))
+                            .foregroundStyle(colors.muted)
+                            .padding(.horizontal, 15)
+                            .padding(.vertical, 6)
+                            .accessibilityID("inspector-tools")
+                    }
+                    helpLine("Track tools and referenced files used in this task.")
+                        .padding(.top, 2)
+                        .padding(.bottom, 5)
+                }
+            }
+        }
+        .frame(maxHeight: 480)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(colors.preview)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(colors.line, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(colors.surfaceHover, lineWidth: 1))
+        .shadow(color: .black.opacity(0.3), radius: 14, y: 8)
         .accessibilityIdentifier("thread-inspector")
+    }
+
+    private var progressMarks: some View {
+        let shown: [TodoItem] = model.todos.isEmpty
+            ? []
+            : Array(model.todos.prefix(6))
+        return HStack(spacing: 0) {
+            if shown.isEmpty {
+                step(done: false)
+            } else {
+                ForEach(Array(shown.enumerated()), id: \.offset) { index, item in
+                    if index > 0 {
+                        Rectangle().fill(colors.dim).frame(width: 12, height: 1)
+                    }
+                    step(done: item.status == .completed)
+                }
+            }
+        }
+        .padding(.horizontal, 17)
+        .padding(.top, 22)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(progressLabel)
+    }
+
+    private var progressLabel: String {
+        let done = model.todos.filter { $0.status == .completed }.count
+        return model.todos.isEmpty ? "No steps yet" : "\(done) of \(model.todos.count) steps completed"
+    }
+
+    private func step(done: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(done ? colors.surfaceHover : Color.clear)
+            Circle()
+                .stroke(colors.stepBorder, lineWidth: 1)
+            if done {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundStyle(colors.dim)
+            }
+        }
+        .frame(width: 32, height: 32)
+    }
+
+    private func helpLine(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 14))
+            .foregroundStyle(colors.dim)
+            .lineSpacing(3)
+            .padding(.horizontal, 15)
+            .padding(.bottom, 10)
+    }
+
+    private func fileRow(_ path: String) -> some View {
+        let url = model.resolvedProjectURL(path)
+        return Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "doc")
+                    .font(.system(size: 14))
+                    .frame(width: 30, height: 30)
+                    .background(colors.surfaceHover)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                    .foregroundStyle(colors.subtle)
+                (Text(url.lastPathComponent).foregroundColor(colors.muted)
+                    + Text(" · \(url.deletingLastPathComponent().lastPathComponent)").foregroundColor(colors.dim))
+                    .font(.system(size: 15))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: 42)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 15)
+        .accessibilityID("inspector-file")
     }
 
     private var renameDialog: some View {
@@ -232,23 +596,91 @@ struct TaskThreadView: View {
                     .background(colors.canvas)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(colors.line, lineWidth: 1))
+                    .onSubmit(saveRename)
                 HStack {
                     Spacer()
                     Button("Cancel") { renameOpen = false }
                         .buttonStyle(.plain)
-                    Button("Save") {
-                        let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !trimmed.isEmpty { model.taskTitle = trimmed }
-                        renameOpen = false
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityID("thread-rename-save")
+                    Button("Save", action: saveRename)
+                        .buttonStyle(.plain)
+                        .accessibilityID("thread-rename-save")
                 }
             }
             .padding(22)
             .frame(width: 420)
             .background(colors.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private func saveRename() {
+        model.renameCurrentTask(renameDraft)
+        renameOpen = false
+    }
+}
+
+/// `.inspector-section`: a heading that folds its body, a rule between sections.
+private struct InspectorSection<Content: View>: View {
+    let title: String
+    let colors: ThemeColors
+    var trailing: AnyView?
+    @ViewBuilder var content: () -> Content
+    @State private var open = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                Button {
+                    open.toggle()
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.system(size: 16))
+                            .foregroundStyle(colors.text)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                            .foregroundStyle(colors.subtle)
+                            .rotationEffect(.degrees(open ? 0 : -90))
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 8)
+                    .frame(minHeight: 45)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if let trailing { trailing }
+            }
+            if open {
+                content()
+            }
+        }
+        .overlay(alignment: .top) {
+            Rectangle().fill(colors.selected).frame(height: 1)
+        }
+    }
+}
+
+/// Attached files and folders travel as plain lines after the prompt; the model reads them with its tools.
+enum ComposerContext {
+    static func prompt(_ text: String, attachments: [String]) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lines = attachments.map { path -> String in
+            var isDirectory: ObjCBool = false
+            FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+            return (isDirectory.boolValue ? "Attached folder: " : "Attached file: ") + path
+        }
+        return ([trimmed] + lines).filter { !$0.isEmpty }.joined(separator: "\n")
+    }
+}
+
+extension ReasoningEffort {
+    static func fromLabel(_ label: String) -> ReasoningEffort {
+        switch label {
+        case "Low": return .low
+        case "Medium": return .medium
+        default: return .high
         }
     }
 }

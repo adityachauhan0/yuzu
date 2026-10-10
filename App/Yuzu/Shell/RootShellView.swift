@@ -10,23 +10,61 @@ struct RootShellView: View {
         let colors = ThemeColors(palette: model.theme.palette)
         let reduced = reduceMotion || model.motionSetting == "Reduced"
         GeometryReader { proxy in
+            let compact = proxy.size.width <= 768
+            let sidebarWidth: CGFloat = proxy.size.width <= 1024 ? 232 : CGFloat(Tokens.sidebarWidth)
+            let sidebarShown = !model.sidebarCollapsed && !compact
             HStack(spacing: 0) {
-                if !model.sidebarCollapsed {
+                if sidebarShown {
                     SidebarView(colors: colors, reduceMotion: reduced)
-                        .frame(width: CGFloat(Tokens.sidebarWidth))
+                        .frame(width: sidebarWidth)
                 }
                 MainColumnView(
                     colors: colors,
                     reduceMotion: reduced,
-                    width: proxy.size.width - (model.sidebarCollapsed ? 0 : CGFloat(Tokens.sidebarWidth))
+                    width: proxy.size.width - (sidebarShown ? sidebarWidth : 0)
                 )
             }
             .background(colors.canvas)
+            .overlay(alignment: .topLeading) {
+                if model.sidebarCollapsed {
+                    Button {
+                        model.sidebarCollapsed = false
+                    } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 14))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.muted)
+                    .padding(.leading, WindowChrome.leading * 2 + WindowChrome.trafficLightsWidth)
+                    .frame(height: WindowChrome.barHeight)
+                    .accessibilityID("sidebar-reopen", label: "Show sidebar")
+                }
+            }
+            .overlay(alignment: .leading) {
+                if compact, !model.sidebarCollapsed {
+                    SidebarView(colors: colors, reduceMotion: reduced)
+                        .frame(width: min(270, max(200, proxy.size.width - 52)))
+                        .shadow(color: .black.opacity(0.35), radius: 16, x: 8, y: 0)
+                }
+            }
+            .onAppear {
+                if compact { model.sidebarCollapsed = true }
+            }
+            .onChange(of: compact) { _, isCompact in
+                model.sidebarCollapsed = isCompact
+            }
+            .overlay {
+                if model.searchOpen {
+                    SearchDialogView(colors: colors)
+                }
+            }
             .overlay {
                 if model.settingsPresented {
                     SettingsDialog(colors: colors)
                 }
             }
+            .background(EscapeKeyMonitor { model.handleEscape() })
             .overlay {
                 if let request = model.pendingPermission {
                     PermissionAskView(colors: colors, request: request)
@@ -97,7 +135,7 @@ struct MainColumnView: View {
                 )
             }
         case .artifacts:
-            if model.createdArtifactPaths.isEmpty {
+            if !model.hasArtifacts {
                 EmptyPanelView(
                     colors: colors,
                     title: "No artifacts yet",
@@ -210,7 +248,8 @@ struct ArtifactListView: View {
                 Text("Artifacts")
                     .font(.custom("Georgia", size: 32))
                     .foregroundStyle(colors.text)
-                ForEach(model.createdArtifactPaths, id: \.self) { path in
+                ForEach(model.allArtifacts, id: \.path) { artifact in
+                    let path = artifact.path
                     Button {
                         NSWorkspace.shared.open(URL(fileURLWithPath: path))
                     } label: {
@@ -218,7 +257,7 @@ struct ArtifactListView: View {
                             Text(URL(fileURLWithPath: path).lastPathComponent)
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(colors.text)
-                            Text(model.taskTitle)
+                            Text(artifact.taskTitle)
                                 .font(.system(size: 13))
                                 .foregroundStyle(colors.dim)
                         }
@@ -438,6 +477,13 @@ struct ScheduledEmptyView: View {
         .onAppear {
             model.reloadSchedules()
             consumeScheduleComposer()
+        }
+        .dismissesOnEscape($sortMenuOpen)
+        .dismissesOnEscape($newMenuOpen)
+        .dismissesOnEscape($dialogOpen)
+        .dismissesOnEscape(when: searchVisible) {
+            searchVisible = false
+            searchQuery = ""
         }
         .onChange(of: model.scheduleComposerOpen) { _, _ in
             consumeScheduleComposer()

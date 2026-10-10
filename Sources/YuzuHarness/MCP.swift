@@ -268,7 +268,8 @@ public final class MCPHub: @unchecked Sendable {
 
     public func instructionsText() -> String? {
         lock.withLock { state in
-            let parts = state.servers.values.compactMap { server -> String? in
+            let servers = state.servers.values.sorted { $0.config.name < $1.config.name }
+            let parts = servers.compactMap { server -> String? in
                 guard let instructions = server.instructions, !instructions.isEmpty else { return nil }
                 return "\(server.config.name):\n\(instructions)"
             }

@@ -10,7 +10,7 @@ public struct MaterializedTools: Sendable {
     public let manualPressed: Bool
 
     private static let registeredBuiltinNames: Set<String> = [
-        "read", "glob", "grep", "write", "edit", "bash", "skill", "task", "read_resource",
+        "read", "glob", "grep", "write", "edit", "bash", "skill", "task", "read_resource", "todowrite",
     ]
 
     private func deliver(call: ToolCall) -> String {
@@ -45,7 +45,7 @@ public struct MaterializedTools: Sendable {
             }
             return "Unknown tool"
         }
-        if call.name == "task" || call.name == "read_resource" {
+        if call.name == "task" || call.name == "read_resource" || call.name == TodoTool.definition.name {
             return "Builtin tool requires async execution"
         }
         if MCPHub.shared.permissionAction(forHarnessName: call.name) != nil {
@@ -111,6 +111,10 @@ public enum ToolRegistry {
                 definitions.append(BuiltinTools.skill)
                 allowed.insert(BuiltinTools.skill.name)
             }
+        }
+        if onlyNames == nil || onlyNames?.contains(TodoTool.definition.name) == true {
+            definitions.append(TodoTool.definition)
+            allowed.insert(TodoTool.definition.name)
         }
         if onlyNames == nil || onlyNames?.contains(BuiltinTools.task.name) == true {
             if !PermissionGate.isWhollyDenied(agentID: agent.id, action: "task") {

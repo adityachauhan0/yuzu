@@ -201,7 +201,7 @@ public enum ModelBacking: String, Sendable, Equatable {
     case uzu
 }
 
-public protocol ModelTurn: Sendable {
+public protocol ModelTurn: AnyObject, Sendable {
     var backing: ModelBacking { get }
     func complete(_ request: TurnRequest) -> AsyncThrowingStream<TurnEvent, Error>
     func reset(epochID: String)
