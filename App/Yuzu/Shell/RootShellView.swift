@@ -25,6 +25,8 @@ struct RootShellView: View {
                 )
             }
             .background(colors.canvas)
+            .animation(MotionTiming.animation(reduceMotion: reduced, drawer: true), value: sidebarShown)
+            .animation(MotionTiming.animation(reduceMotion: reduced, drawer: true), value: compact)
             .overlay(alignment: .topLeading) {
                 if model.sidebarCollapsed {
                     Button {
@@ -110,6 +112,8 @@ struct MainColumnView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(colors.canvas)
+        .animation(MotionTiming.animation(reduceMotion: reduceMotion), value: model.workspaceMode)
+        .animation(MotionTiming.animation(reduceMotion: reduceMotion), value: model.coworkDestination)
     }
 
     @ViewBuilder
@@ -119,21 +123,8 @@ struct MainColumnView: View {
             CoworkHomeView(colors: colors)
                 .accessibilityID("home")
         case .projects:
-            if model.hasProjects {
-                EmptyPanelView(
-                    colors: colors,
-                    title: model.codeFolderName,
-                    description: "Your project is ready for new tasks.",
-                    detail: "Select the project below to start a task in this workspace."
-                )
-            } else {
-                EmptyPanelView(
-                    colors: colors,
-                    title: "No project yet",
-                    description: "Your project is ready for new tasks.",
-                    detail: "Choose a folder to start a task in this workspace."
-                )
-            }
+            ProjectsView(colors: colors)
+                .accessibilityID("projects-view")
         case .artifacts:
             if !model.hasArtifacts {
                 EmptyPanelView(
@@ -260,6 +251,14 @@ struct ArtifactListView: View {
                             Text(artifact.taskTitle)
                                 .font(.system(size: 13))
                                 .foregroundStyle(colors.dim)
+                            if let kind = model.fileReviewRows.first(where: {
+                                URL(fileURLWithPath: $0.path).lastPathComponent == URL(fileURLWithPath: path).lastPathComponent
+                            })?.kind {
+                                Text(kind)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(colors.dim)
+                                    .accessibilityID("artifact-review-\(kind)")
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
@@ -406,27 +405,20 @@ struct ScheduledEmptyView: View {
                         .font(.system(size: 16))
                         .foregroundStyle(colors.text)
                     Spacer()
-                    Button {
-                        model.setKeepAwake(!model.keepAwake)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "sun.max")
-                            Text("Keep awake")
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(model.keepAwake ? colors.accent : colors.line)
-                                .frame(width: 36, height: 20)
-                                .overlay(alignment: model.keepAwake ? .trailing : .leading) {
-                                    Circle()
-                                        .fill(colors.text)
-                                        .frame(width: 16, height: 16)
-                                        .padding(2)
-                                }
-                        }
-                        .font(.system(size: 14))
-                        .foregroundStyle(colors.text)
+                    HStack(spacing: 8) {
+                        Image(systemName: "sun.max")
+                        Text("Keep awake")
+                        YuzuSwitch(
+                            colors: colors,
+                            isOn: Binding(
+                                get: { model.keepAwake },
+                                set: { model.setKeepAwake($0) }
+                            ),
+                            accessibilityID: "awake-control"
+                        )
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityID("awake-control")
+                    .font(.system(size: 14))
+                    .foregroundStyle(colors.text)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
@@ -542,10 +534,10 @@ struct ScheduledEmptyView: View {
                             .font(.system(size: 10))
                     }
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                    .foregroundStyle(colors.onAccent)
                     .padding(.horizontal, 13)
                     .frame(minWidth: 126, minHeight: 38)
-                    .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                    .background(colors.softText)
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                 }
                 .buttonStyle(.plain)
@@ -736,10 +728,10 @@ struct ScheduledEmptyView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                    .foregroundStyle(colors.onAccent)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                    .background(colors.softText)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .accessibilityID("schedule-create")
                 }

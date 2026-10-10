@@ -166,6 +166,9 @@ private actor TurnGate {
         var stats: ChatReplyStats?
         var textSent = ""
         var reasoningSent = ""
+        var reportedInput = -1
+        var reportedCached = -1
+        var reportedOutput = -1
         // Cancelling stops sampling; the stream still runs to its end so the session
         // leaves the generation state before the next reset.
         try await withTaskCancellationHandler {
@@ -178,6 +181,20 @@ private actor TurnGate {
                     textSent = emitDelta(reply.message.text() ?? "", sent: textSent) { yield(.text($0)) }
                     reasoningSent = emitDelta(reply.message.reasoning() ?? "", sent: reasoningSent) {
                         yield(.reasoning($0))
+                    }
+                    let input = Int(reply.stats.tokensCountInput ?? 0)
+                    let cached = Int(reply.stats.tokensCountInputCached ?? 0)
+                    let output = Int(reply.stats.tokensCountOutput ?? 0)
+                    if input != reportedInput || cached != reportedCached || output != reportedOutput {
+                        reportedInput = input
+                        reportedCached = cached
+                        reportedOutput = output
+                        yield(.usage(
+                            input: input,
+                            cached: cached,
+                            output: output,
+                            duration: reply.stats.duration
+                        ))
                     }
                 case .error(let error):
                     if Task.isCancelled { continue }

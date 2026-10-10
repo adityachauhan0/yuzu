@@ -32,11 +32,13 @@ public struct Agent: Sendable, Equatable {
         PermissionRule(action: "read", resource: "*", effect: .allow),
         PermissionRule(action: "glob", resource: "*", effect: .allow),
         PermissionRule(action: "grep", resource: "*", effect: .allow),
+        PermissionRule(action: "webfetch", resource: "*", effect: .allow),
         PermissionRule(action: "skill", resource: "*", effect: .allow),
         PermissionRule(action: "task", resource: "*", effect: .allow),
         PermissionRule(action: "edit", resource: "*", effect: .ask),
         PermissionRule(action: "bash", resource: "*", effect: .ask),
         PermissionRule(action: "mcp:*", resource: "*", effect: .ask),
+        PermissionRule(action: "mcp", resource: "*", effect: .ask),
     ]
 
     public static let build = Agent(id: "build", mode: .all)
@@ -47,10 +49,12 @@ public struct Agent: Sendable, Equatable {
             PermissionRule(action: "read", resource: "*", effect: .allow),
             PermissionRule(action: "glob", resource: "*", effect: .allow),
             PermissionRule(action: "grep", resource: "*", effect: .allow),
+            PermissionRule(action: "webfetch", resource: "*", effect: .allow),
             PermissionRule(action: "edit", resource: "*", effect: .deny),
             PermissionRule(action: "bash", resource: "*", effect: .deny),
             PermissionRule(action: "skill", resource: "*", effect: .allow),
             PermissionRule(action: "mcp:*", resource: "*", effect: .ask),
+            PermissionRule(action: "mcp", resource: "*", effect: .ask),
         ]
     )
 

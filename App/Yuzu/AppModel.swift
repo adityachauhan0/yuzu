@@ -45,7 +45,6 @@ enum SettingsTab: String, Sendable, CaseIterable {
     case developer = "Developer"
     case skills = "Skills"
     case connectors = "Connectors"
-    case plugins = "Plugins"
 }
 
 enum InspectorPresentation: String, Sendable {
@@ -81,6 +80,10 @@ final class AppModel: ObservableObject {
     @Published var installedModelName: String?
     private(set) var installedModelIdentifier: String?
     @Published var speedLabel = "—"
+    /// Engine token total for the turn on screen, including prompt, cache, and generated tokens.
+    @Published private(set) var liveContextLabel: String?
+    /// Transcript count when the current send started, so Thinking is not hidden by the previous reply.
+    private var replyFloor = 0
     @Published var scheduledTasks: [ScheduledTaskRecord] = []
     @Published var workDescription = "Select"
     @Published var settingsAnchor: SettingsAnchor?
@@ -123,6 +126,9 @@ final class AppModel: ObservableObject {
     @Published var transcript: [StoredMessage] = []
     @Published var todos: [TodoItem] = []
     @Published var threadDraft = ""
+    @Published var threadFindQuery = ""
+    @Published var pendingQuestions: [(callID: String, question: String)] = []
+    @Published var childTranscriptSessionID: String?
 
     let store: HarnessStore
     private var restoringAppearance = false
@@ -349,6 +355,16 @@ final class AppModel: ObservableObject {
             await drain.task.value
         }
         runner.requestedReasoningEffort = reasoningEffort
+        let status = try? store.session(id: target)?.status
+        let drainBusy = drain?.sessionID == target
+        let shouldQueue = turnRunning || drainBusy || status == .running || status == .waitingPermission
+        if shouldQueue {
+            _ = try? store.appendInbox(sessionID: target, text: admitted, delivery: .queue)
+            reloadSessions()
+            Task { await runner.run() }
+            return
+        }
+        replyFloor = transcript.count
         turnRunning = true
         defer { turnRunning = false }
         let started = Date()
@@ -363,6 +379,7 @@ final class AppModel: ObservableObject {
         drain = (target, runTask)
         while !Task.isCancelled {
             reloadTranscript()
+            applyLiveGeneration()
             refreshPendingPermission()
             let waiting = (try? store.pendingPermissionRequests(sessionID: target))?.isEmpty == false
             if !waiting, finished.withLock({ $0 }) {
@@ -376,9 +393,10 @@ final class AppModel: ObservableObject {
         }
         reloadTranscript()
         reloadSessions()
+        applyLiveGeneration()
         let added = outputTokens(sessionID: target) - tokensBefore
         let elapsed = Date().timeIntervalSince(started)
-        if added > 0, elapsed >= 0.5 {
+        if speedLabel == "—", added > 0, elapsed >= 0.5 {
             speedLabel = "\(Int((Double(added) / elapsed).rounded())) tok/s"
         }
         log("turn finished session=\(target) tokens=\(added) seconds=\(String(format: "%.1f", elapsed))")
@@ -715,8 +733,166 @@ final class AppModel: ObservableObject {
     func reloadTranscript() {
         let messages = (try? store.messages(sessionID: sessionID)) ?? []
         if messages != transcript { transcript = messages }
+        let mcpURL = supportDirectory.appendingPathComponent("mcp.json")
+        if let saved = try? String(contentsOf: mcpURL, encoding: .utf8), saved != mcpConfig {
+            mcpConfig = saved
+            refreshMCPLines()
+        }
         let steps = (try? store.todos(sessionID: sessionID)) ?? []
         if steps != todos { todos = steps }
+        refreshPendingQuestions()
+    }
+
+    func refreshPendingQuestions() {
+        Task {
+            let list = await QuestionTool.Broker.shared.pendingQuestions(sessionID: sessionID)
+            await MainActor.run {
+                pendingQuestions = list
+            }
+        }
+    }
+
+    func answerPendingQuestion(callID: String, answer: String) async {
+        await QuestionTool.Broker.shared.answer(sessionID: sessionID, callID: callID, text: answer)
+        reloadTranscript()
+        await runner.run()
+    }
+
+    func revertLastTurn() async {
+        _ = await runner.revertLastUserTurn()
+        reloadTranscript()
+        reloadSessions()
+    }
+
+    func setSessionAgent(_ agentID: String) async {
+        await runner.setAgent(agentID)
+        reloadSessions()
+    }
+
+    var sessionAgentID: String {
+        (try? store.session(id: sessionID)?.agentID) ?? "build"
+    }
+
+    var awaitingAssistantText: Bool {
+        guard turnRunning else { return false }
+        let start = min(replyFloor, transcript.count)
+        let assistant = transcript.dropFirst(start).last { $0.role == .assistant }
+        let text = assistant?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let reasoning = assistant?.reasoning.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return text.isEmpty && reasoning.isEmpty
+    }
+
+    private func applyLiveGeneration() {
+        guard let live = runner.liveGeneration(), live.totalTokens > 0 else { return }
+        if live.duration >= 0.05 {
+            speedLabel = "\(Int((Double(live.totalTokens) / live.duration).rounded())) tok/s"
+        }
+        guard let session = try? store.session(id: sessionID), session.contextLength > 0 else { return }
+        let pct = min(100, Int((Double(live.totalTokens) / Double(session.contextLength) * 100).rounded()))
+        liveContextLabel = "\(live.totalTokens.formatted()) (\(pct)%)"
+    }
+
+    var threadHarnessEvents: [HarnessEventRecord] {
+        (try? store.harnessEvents(sessionID: sessionID)) ?? []
+    }
+
+    var threadContextUsageLabel: String {
+        if let liveContextLabel { return liveContextLabel }
+        guard let session = try? store.session(id: sessionID), session.contextLength > 0 else { return "—" }
+        let projected = (try? runner.contextCoordinator.projectedHistory(
+            store: store,
+            sessionID: sessionID,
+            session: session
+        )) ?? []
+        let baseline = try? runner.contextCoordinator.baselineSystemText(
+            store: store,
+            sessionID: sessionID,
+            epochID: session.epochID
+        )
+        let used = Compaction.estimateTokens(messages: projected, baseline: baseline)
+        let pct = Int((Double(used) / Double(session.contextLength) * 100).rounded())
+        return "\(used.formatted()) (\(pct)%)"
+    }
+
+    struct FileReviewRow: Identifiable, Equatable {
+        let id: String
+        let path: String
+        let kind: String
+        let preview: String
+    }
+
+    var fileReviewRows: [FileReviewRow] {
+        var rows: [FileReviewRow] = []
+        for message in transcript where message.role == .assistant {
+            for call in message.toolCalls where call.name == "write" || call.name == "edit" {
+                guard case .object(let fields) = call.arguments,
+                      case .string(let path)? = fields["path"], !path.isEmpty else { continue }
+                let preview: String
+                if call.name == "edit" {
+                    let old = Self.argumentString(call.arguments, key: "old_string")
+                    let new = Self.argumentString(call.arguments, key: "new_string")
+                    preview = "-\(old)\n+\(new)"
+                } else {
+                    preview = Self.argumentString(call.arguments, key: "body")
+                }
+                rows.append(FileReviewRow(
+                    id: call.id,
+                    path: path,
+                    kind: call.name == "write" ? "write" : "edit",
+                    preview: String(preview.prefix(800))
+                ))
+            }
+        }
+        return rows
+    }
+
+    func childSessionID(forTaskCall callID: String) -> String? {
+        try? store.taskChildSessionID(parentSessionID: sessionID, toolCallID: callID)
+    }
+
+    private static func argumentString(_ value: JSONValue, key: String) -> String {
+        guard case .object(let fields) = value, case .string(let text)? = fields[key] else { return "" }
+        return text
+    }
+
+    func installMCPServer(name: String, command: String, args: [String]) {
+        let file = supportDirectory.appendingPathComponent("mcp.json")
+        guard let text = try? MCPTool.install(
+            name: name.isEmpty ? "duckduckgo" : name,
+            command: command.isEmpty ? nil : command,
+            args: args,
+            url: nil,
+            at: file
+        ) else { return }
+        mcpConfig = text
+        refreshMCPLines()
+        Task { await applySavedMCPConfig() }
+    }
+
+    func removeMCPServer(named name: String) {
+        guard var entries = try? MCPConfig.parse(mcpConfig) else { return }
+        entries.removeAll { $0.name == name }
+        mcpConfig = MCPConfig.encode(entries)
+        saveMCPConfig()
+    }
+
+    func setMCPServerEnabled(_ name: String, enabled: Bool) {
+        guard var entries = try? MCPConfig.parse(mcpConfig) else { return }
+        guard let index = entries.firstIndex(where: { $0.name == name }) else { return }
+        entries[index].enabled = enabled
+        mcpConfig = MCPConfig.encode(entries)
+        saveMCPConfig()
+    }
+
+    func connectMCPServer(named name: String) async {
+        guard let entry = (try? MCPConfig.parse(mcpConfig))?.first(where: { $0.name == name }) else { return }
+        try? await runner.mcpConnect(entry.config)
+        refreshMCPLines()
+    }
+
+    func disconnectMCPServer(named name: String) {
+        runner.mcpDisconnect(name)
+        refreshMCPLines()
     }
 
     /// Files the model read, wrote or edited in this task, in first-use order.
@@ -828,7 +1004,7 @@ final class AppModel: ObservableObject {
         MotionTiming.durations(reduceMotion: reduceMotion)
     }
 
-    var hasProjects: Bool { codeFolderName != "Select folder…" }
+    var hasProjects: Bool { !knownProjectFolders.isEmpty }
     var createdArtifactPaths: [String] {
         var seen = Set<String>()
         return transcript.compactMap { message in
@@ -901,6 +1077,7 @@ final class AppModel: ObservableObject {
 
     private func configure(_ runner: SessionRunner) {
         let directory = supportDirectory
+        runner.mcpConfigURL = directory.appendingPathComponent("mcp.json")
         runner.contextCoordinator.loadUserInstructions = {
             var parts = ["instructions.md", "cowork-instructions.md"].compactMap { name -> String? in
                 let url = directory.appendingPathComponent(name)

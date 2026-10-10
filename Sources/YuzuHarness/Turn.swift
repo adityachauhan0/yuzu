@@ -190,7 +190,25 @@ public struct TurnRequest: Sendable {
 public enum TurnEvent: Sendable {
     case text(String)
     case reasoning(String)
+    /// Running totals from the engine: prompt tokens, cached prompt tokens, generated tokens, and seconds so far.
+    case usage(input: Int, cached: Int, output: Int, duration: Double)
     case finished(AssistantTurn)
+}
+
+public struct LiveGeneration: Sendable, Equatable {
+    public var inputTokens: Int
+    public var cachedTokens: Int
+    public var outputTokens: Int
+    public var duration: Double
+
+    public var totalTokens: Int { inputTokens + cachedTokens + outputTokens }
+
+    public init(inputTokens: Int, cachedTokens: Int, outputTokens: Int, duration: Double) {
+        self.inputTokens = inputTokens
+        self.cachedTokens = cachedTokens
+        self.outputTokens = outputTokens
+        self.duration = duration
+    }
 }
 
 /// What sits behind a turn. A string on screen is not this.

@@ -88,4 +88,27 @@ public enum MCPConfig {
         }
         return map
     }
+
+    public static func encode(_ entries: [MCPConfigEntry]) -> String {
+        var servers: [String: Any] = [:]
+        for entry in entries {
+            var body: [String: Any] = ["enabled": entry.enabled, "timeout": entry.config.timeout]
+            switch entry.config.transport {
+            case .stdio(let command, let arguments, let environment):
+                body["command"] = command
+                if !arguments.isEmpty { body["args"] = arguments }
+                if !environment.isEmpty { body["env"] = environment }
+            case .http(let url, let headers):
+                body["url"] = url
+                if !headers.isEmpty { body["headers"] = headers }
+            }
+            servers[entry.name] = body
+        }
+        let root: [String: Any] = ["mcp_servers": servers]
+        guard let data = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys]),
+              let text = String(data: data, encoding: .utf8) else {
+            return "{\n  \"mcp_servers\": {}\n}"
+        }
+        return text
+    }
 }

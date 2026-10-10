@@ -12,7 +12,10 @@ struct TaskThreadView: View {
     @State private var titleMenuOpen = false
     @State private var addMenuOpen = false
     @State private var modelMenuOpen = false
+    @State private var effortMenuOpen = false
+    @State private var agentMenuOpen = false
     @State private var attachments: [String] = []
+    @State private var questionAnswers: [String: String] = [:]
 
     private var presentation: InspectorPresentation {
         model.inspectorPresentation(width: model.contentWidth)
@@ -37,6 +40,7 @@ struct TaskThreadView: View {
                     .frame(width: min(376, width - 20))
                     .padding(.top, 60)
                     .padding(.trailing, 10)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             if renameOpen {
                 renameDialog
@@ -44,10 +48,22 @@ struct TaskThreadView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityID("inspector-layout-\(presentation.rawValue)")
+        .animation(MotionTiming.animation(reduceMotion: reduceMotion, drawer: true), value: model.inspectorOpen)
         .dismissesOnEscape($titleMenuOpen)
         .dismissesOnEscape($addMenuOpen)
         .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnEscape($effortMenuOpen)
+        .dismissesOnEscape($agentMenuOpen)
         .dismissesOnEscape($renameOpen)
+        .sheet(isPresented: Binding(
+            get: { model.childTranscriptSessionID != nil },
+            set: { if !$0 { model.childTranscriptSessionID = nil } }
+        )) {
+            if let sessionID = model.childTranscriptSessionID {
+                ChildTranscriptSheet(sessionID: sessionID, colors: colors)
+                    .environmentObject(model)
+            }
+        }
     }
 
     // MARK: Thread
@@ -58,9 +74,31 @@ struct TaskThreadView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        let items = ThreadItem.build(model.transcript)
+                        let items = filteredThreadItems(
+                            ThreadItem.build(model.transcript, events: model.threadHarnessEvents)
+                        )
+                        let lastUserIndex = items.lastIndex(where: {
+                            if case .user = $0 { return true }
+                            return false
+                        })
+                        let lastThoughtIndex = items.lastIndex(where: {
+                            if case .thought = $0 { return true }
+                            return false
+                        })
                         ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                            threadItem(item, index: index, isLast: index == items.count - 1)
+                            threadItem(
+                                item,
+                                index: index,
+                                isLast: index == items.count - 1,
+                                isLatestUser: index == lastUserIndex,
+                                streamThought: model.turnRunning && index == lastThoughtIndex
+                            )
+                        }
+                        if model.awaitingAssistantText {
+                            ThinkingLine(colors: colors, reduceMotion: reduceMotion)
+                        }
+                        ForEach(model.pendingQuestions, id: \.callID) { pending in
+                            questionCard(pending)
                         }
                         Color.clear.frame(height: 1).id("thread-end")
                     }
@@ -83,6 +121,12 @@ struct TaskThreadView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// When the sidebar is closed, the real traffic lights occupy the top-left of this column.
+    private var threadHeaderLeading: CGFloat {
+        guard model.sidebarCollapsed else { return 22 }
+        return WindowChrome.leading * 2 + WindowChrome.trafficLightsWidth + 28 + 16
+    }
+
     private var threadTop: some View {
         HStack {
             Button {
@@ -100,6 +144,11 @@ struct TaskThreadView: View {
             }
             .buttonStyle(.plain)
             .accessibilityID("thread-title")
+            TextField("Find in thread", text: $model.threadFindQuery)
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .frame(maxWidth: 180)
+                .accessibilityID("thread-find")
             Spacer()
             Button {
                 model.inspectorOpen.toggle()
@@ -114,8 +163,10 @@ struct TaskThreadView: View {
             .buttonStyle(.plain)
             .accessibilityID("thread-layout", label: "Toggle task details")
         }
-        .padding(.horizontal, 22)
-        .frame(height: 62)
+        .padding(.leading, threadHeaderLeading)
+        .padding(.trailing, 22)
+        .frame(height: WindowChrome.barHeight)
+        .animation(MotionTiming.animation(reduceMotion: reduceMotion, drawer: true), value: model.sidebarCollapsed)
         .overlay(alignment: .topLeading) {
             if titleMenuOpen {
                 HandoffPopover(colors: colors) {
@@ -153,33 +204,64 @@ struct TaskThreadView: View {
     }
 
     @ViewBuilder
-    private func threadItem(_ item: ThreadItem, index: Int, isLast: Bool) -> some View {
+    private func threadItem(
+        _ item: ThreadItem,
+        index: Int,
+        isLast: Bool,
+        isLatestUser: Bool,
+        streamThought: Bool = false
+    ) -> some View {
         switch item {
         case .user(let text):
-            Text(text)
-                .font(YuzuFonts.interface(model.interfaceFont, size: model.transcriptFontSize + 1))
-                .lineSpacing(5)
-                .foregroundStyle(colors.softText)
-                .textSelection(.enabled)
-                .padding(.vertical, 13)
-                .padding(.horizontal, 19)
-                .background(colors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 18)
-                .padding(.leading, 80)
-                .padding(.top, index == 0 ? 0 : 48)
-                .accessibilityID("thread-user")
-        case .reply(let text, let reasoning):
-            VStack(alignment: .leading, spacing: 0) {
-                if model.transcriptView != "Normal", !reasoning.isEmpty {
-                    Text(reasoning)
-                        .font(replyFont(size: model.transcriptFontSize + 1))
-                        .foregroundStyle(colors.dim)
-                        .textSelection(.enabled)
-                        .padding(.bottom, 12)
-                        .accessibilityID("thread-reasoning")
+            VStack(alignment: .trailing, spacing: 8) {
+                Text(text)
+                    .font(YuzuFonts.interface(model.interfaceFont, size: model.transcriptFontSize + 1))
+                    .lineSpacing(5)
+                    .foregroundStyle(colors.softText)
+                    .textSelection(.enabled)
+                    .padding(.vertical, 13)
+                    .padding(.horizontal, 19)
+                    .background(colors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 18)
+                    .padding(.leading, 80)
+                if isLatestUser, !model.turnRunning {
+                    Button("Revert") {
+                        Task { await model.revertLastTurn() }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 14))
+                    .foregroundStyle(colors.dim)
+                    .padding(.trailing, 24)
+                    .accessibilityID("thread-revert")
                 }
+            }
+            .padding(.top, index == 0 ? 0 : 48)
+            .accessibilityID("thread-user")
+        case .thought(let reasoning):
+            ThreadThoughtRow(colors: colors, text: reasoning, streaming: streamThought)
+                .padding(.top, index == 0 ? 0 : 20)
+        case .tools(let label, let rows):
+            ThreadToolGroupView(
+                colors: colors,
+                label: label,
+                rows: rows,
+                onOpenTask: { call in
+                    if let child = model.childSessionID(forTaskCall: call.id) {
+                        model.childTranscriptSessionID = child
+                    }
+                }
+            )
+            .padding(.top, index == 0 ? 0 : 20)
+        case .compaction:
+            Text("Earlier context was summarized.")
+                .font(.system(size: 15))
+                .foregroundStyle(colors.dim)
+                .padding(.top, index == 0 ? 0 : 16)
+                .accessibilityID("thread-compaction")
+        case .reply(let text):
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(FencedText.segments(text).enumerated()), id: \.offset) { _, segment in
                     switch segment {
                     case .prose(let prose):
@@ -214,35 +296,55 @@ struct TaskThreadView: View {
                     .padding(.leading, -6)
                     .accessibilityID("thread-copy", label: "Copy response")
                 }
-                if isLast, !model.turnRunning,
-                   let mark = HandoffImage.coworkLogo(dark: isDark, width: 39) {
-                    mark.resizable().scaledToFit()
-                        .frame(width: 39, height: 39)
-                        .padding(.top, 34)
-                        .accessibilityHidden(true)
-                        .accessibilityID("thread-brand")
-                }
             }
             .padding(.top, index == 0 ? 0 : 12)
             .accessibilityID("thread-reply")
-        case .activity(let summary, let calls):
-            VStack(alignment: .leading, spacing: 6) {
-                Text(summary)
-                    .font(.system(size: 16))
-                    .foregroundStyle(colors.dim)
-                if model.transcriptView == "Verbose" {
-                    ForEach(Array(calls.enumerated()), id: \.offset) { _, call in
-                        Text("\(call.name) \(call.arguments.compactText)")
-                            .font(YuzuFonts.code(model.codeFont, size: 13))
-                            .foregroundStyle(colors.muted)
-                            .textSelection(.enabled)
-                            .lineLimit(4)
-                    }
-                }
-            }
-            .padding(.top, index == 0 ? 0 : 28)
-            .accessibilityID("thread-activity", label: summary)
         }
+    }
+
+    private func filteredThreadItems(_ items: [ThreadItem]) -> [ThreadItem] {
+        let term = model.threadFindQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !term.isEmpty else { return items }
+        return items.filter { item in
+            switch item {
+            case .user(let text), .reply(let text), .thought(let text):
+                return text.lowercased().contains(term)
+            case .tools(_, let rows):
+                return rows.contains {
+                    $0.result.lowercased().contains(term)
+                        || $0.presentation.detail.lowercased().contains(term)
+                }
+            case .compaction:
+                return "summarized".contains(term)
+            }
+        }
+    }
+
+    private func questionCard(_ pending: (callID: String, question: String)) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(pending.question)
+                .font(.system(size: 16))
+                .foregroundStyle(colors.text)
+            TextField("Your answer", text: Binding(
+                get: { questionAnswers[pending.callID, default: ""] },
+                set: { questionAnswers[pending.callID] = $0 }
+            ))
+            .textFieldStyle(.plain)
+            .padding(10)
+            .background(colors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            Button("Send answer") {
+                let answer = questionAnswers[pending.callID, default: ""]
+                Task { await model.answerPendingQuestion(callID: pending.callID, answer: answer) }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(colors.accent)
+        }
+        .padding(16)
+        .background(colors.preview)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.top, 16)
+        .accessibilityID("thread-question")
     }
 
     private func replyFont(size: CGFloat) -> Font {
@@ -286,7 +388,19 @@ struct TaskThreadView: View {
                     .accessibilityID("thread-project", label: "Add a project")
                     Spacer()
                     Button {
+                        agentMenuOpen.toggle()
+                        modelMenuOpen = false
+                        effortMenuOpen = false
+                    } label: {
+                        Text(model.sessionAgentID == "plan" ? "Plan" : "Build")
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.softText)
+                    .accessibilityID("thread-agent-button")
+                    Button {
                         modelMenuOpen.toggle()
+                        effortMenuOpen = false
                         addMenuOpen = false
                     } label: {
                         Text(model.modelDisplayName).font(.system(size: 16)).lineLimit(1)
@@ -294,10 +408,18 @@ struct TaskThreadView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(colors.softText)
                     .accessibilityID("thread-model-button")
-                    Text(model.coworkEffortLabel)
-                        .font(.system(size: 16))
-                        .foregroundStyle(colors.subtle)
-                        .accessibilityID("thread-effort")
+                    Button {
+                        effortMenuOpen.toggle()
+                        modelMenuOpen = false
+                        addMenuOpen = false
+                    } label: {
+                        Text(model.coworkEffortLabel)
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.subtle)
+                    .accessibilityID("thread-effort")
+                    .accessibilityID("thread-effort-button")
                     if model.turnRunning, !ready {
                         Button {
                             Task { await model.stopTurn() }
@@ -358,19 +480,61 @@ struct TaskThreadView: View {
             .overlay(alignment: .bottomTrailing) {
                 if modelMenuOpen {
                     HandoffPopover(colors: colors) {
-                        HandoffMenuLabel(title: "Model and effort", colors: colors)
+                        HandoffMenuLabel(title: "Model", colors: colors)
+                        HandoffPopoverRow(title: model.modelDisplayName, colors: colors) {
+                            modelMenuOpen = false
+                        }
+                    }
+                    .frame(width: 240)
+                    .padding(.bottom, 56)
+                    .padding(.trailing, 120)
+                }
+                if effortMenuOpen {
+                    HandoffPopover(colors: colors) {
+                        HandoffMenuLabel(title: "Effort", colors: colors)
                         ForEach(["High", "Medium", "Low"], id: \.self) { effort in
-                            HandoffPopoverRow(title: "\(model.modelDisplayName) · \(effort)", colors: colors) {
+                            HandoffPopoverRow(title: effort, colors: colors) {
                                 model.reasoningEffort = ReasoningEffort.fromLabel(effort)
-                                modelMenuOpen = false
+                                effortMenuOpen = false
                             }
                         }
                     }
-                    .frame(width: 300)
+                    .frame(width: 180)
                     .padding(.bottom, 56)
                     .padding(.trailing, 57)
                 }
+                if agentMenuOpen {
+                    HandoffPopover(colors: colors) {
+                        HandoffMenuLabel(title: "Agent", colors: colors)
+                        HandoffPopoverRow(title: "Build", colors: colors) {
+                            Task { await model.setSessionAgent("build") }
+                            agentMenuOpen = false
+                        }
+                        HandoffPopoverRow(title: "Plan", colors: colors) {
+                            Task { await model.setSessionAgent("plan") }
+                            agentMenuOpen = false
+                        }
+                    }
+                    .frame(width: 180)
+                    .padding(.bottom, 56)
+                    .padding(.trailing, 200)
+                }
             }
+
+            HStack {
+                Text(model.threadContextUsageLabel)
+                    .font(.system(size: 13))
+                    .foregroundStyle(colors.dim)
+                    .accessibilityID("thread-context-usage")
+                    .accessibilityID("thread-context-percent")
+                Spacer()
+                Text(model.speedLabel)
+                    .font(.system(size: 13))
+                    .foregroundStyle(colors.dim)
+                    .accessibilityID("thread-speed")
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 6)
 
             if !attachments.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
@@ -452,6 +616,37 @@ struct TaskThreadView: View {
                         progressMarks
                         helpLine("Progress on longer tasks appears here.")
                             .padding(.top, 41)
+                    }
+                }
+                InspectorSection(title: "Review", colors: colors) {
+                    ForEach(model.fileReviewRows) { row in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(row.path)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(colors.muted)
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text(row.kind)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(colors.dim)
+                                    .accessibilityID("review-row-\(row.kind)")
+                                    .accessibilityID("artifact-review-\(row.kind)")
+                            }
+                            if !row.preview.isEmpty {
+                                Text(row.preview)
+                                    .font(YuzuFonts.code(model.codeFont, size: 12))
+                                    .foregroundStyle(colors.muted)
+                                    .lineLimit(8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 4)
+                    }
+                    if model.fileReviewRows.isEmpty {
+                        helpLine("Writes and edits from this task appear here.")
+                            .padding(.top, 2)
                     }
                 }
                 InspectorSection(

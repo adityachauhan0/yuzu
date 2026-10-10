@@ -6,6 +6,8 @@ struct SidebarView: View {
     @EnvironmentObject private var model: AppModel
     let colors: ThemeColors
     let reduceMotion: Bool
+    @State private var accountOpen = false
+    @State private var languageOpen = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -34,38 +36,9 @@ struct SidebarView: View {
 
             Spacer()
 
-            Menu {
-                Text("Yuzu Beta Version 0.0.1")
-                Button("Settings") {
-                    model.openSettings()
-                }
-                .accessibilityIdentifier("account-menu-settings")
-                Menu("Language") {
-                    Button {
-                        model.interfaceLanguage = "English"
-                    } label: {
-                        Label("English", systemImage: "checkmark")
-                    }
-                    .accessibilityIdentifier("account-language-english")
-                }
-                Button("Inference configuration") {
-                    model.openSettings(tab: .developer, anchor: .inference)
-                }
-                Divider()
-                Button("View changelog") {
-                    model.changelogPresented = true
-                }
-                .accessibilityIdentifier("account-changelog")
-                Button("Learn more") {
-                    if let url = URL(string: "https://github.com/adityachauhan0/yuzu") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-                .accessibilityIdentifier("account-learn-more")
-                Button("Sign out") {
-                    model.showToast("Yuzu runs on this Mac. There is no account to sign out of.")
-                }
-                .accessibilityIdentifier("account-sign-out")
+            Button {
+                accountOpen.toggle()
+                languageOpen = false
             } label: {
                 HStack(spacing: 10) {
                     if let logo = HandoffImage.coworkLogo(dark: model.theme == .dark, width: 28) {
@@ -83,16 +56,74 @@ struct SidebarView: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .menuStyle(.borderlessButton)
+            .buttonStyle(.plain)
             .accessibilityID("account-button")
+            .accessibilityID("account-popover")
+            .padding(.horizontal, 10)
+            .padding(.bottom, 12)
+            .overlay(alignment: .bottomLeading) {
+                if accountOpen {
+                    accountPopover
+                        .padding(.leading, 10)
+                        .padding(.bottom, 52)
+                }
+            }
         }
         .background(colors.side)
+        .dismissesOnEscape($accountOpen)
+        .dismissesOnEscape($languageOpen)
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(colors.line.opacity(0.5))
                 .frame(width: 1)
         }
         .accessibilityID("sidebar")
+    }
+
+    private var accountPopover: some View {
+        HandoffPopover(colors: colors) {
+            HandoffMenuLabel(title: "Yuzu Beta Version 0.0.1", colors: colors)
+            HandoffPopoverRow(title: "Settings", colors: colors) {
+                accountOpen = false
+                model.openSettings()
+            }
+            .accessibilityIdentifier("account-menu-settings")
+            HandoffPopoverRow(
+                title: model.interfaceLanguage == "English" ? "Language  ✓  English" : "Language",
+                colors: colors
+            ) {
+                languageOpen.toggle()
+            }
+            if languageOpen {
+                HandoffPopoverRow(title: "English  ✓", colors: colors) {
+                    model.interfaceLanguage = "English"
+                    languageOpen = false
+                }
+                .accessibilityIdentifier("account-language-english")
+            }
+            HandoffPopoverRow(title: "Inference configuration", colors: colors) {
+                accountOpen = false
+                model.openSettings(tab: .developer, anchor: .inference)
+            }
+            HandoffPopoverRow(title: "View changelog", colors: colors) {
+                accountOpen = false
+                model.changelogPresented = true
+            }
+            .accessibilityIdentifier("account-changelog")
+            HandoffPopoverRow(title: "Learn more", colors: colors) {
+                accountOpen = false
+                if let url = URL(string: "https://github.com/adityachauhan0/yuzu") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .accessibilityIdentifier("account-learn-more")
+            HandoffPopoverRow(title: "Sign out", colors: colors) {
+                accountOpen = false
+                model.showToast("Yuzu runs on this Mac. There is no account to sign out of.")
+            }
+            .accessibilityIdentifier("account-sign-out")
+        }
+        .frame(width: 260)
     }
 
     private var windowBar: some View {

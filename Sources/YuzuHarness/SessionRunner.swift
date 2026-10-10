@@ -13,6 +13,8 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     }
 
     public let sessionID: String
+    /// Where `mcp` reads and writes servers. The app points this at its support directory.
+    public var mcpConfigURL: URL = MCPTool.defaultFileURL()
     private let store: HarnessStore
     private let modelBox: OSAllocatedUnfairLock<any ModelTurn>
 
@@ -41,6 +43,12 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
     public var holdBeforeToolSettle = false
     /// Test hook: block immediately before calling the model (L9).
     public var holdBeforeProviderTurn = false
+    private let liveGenerationLock = OSAllocatedUnfairLock<LiveGeneration?>(initialState: nil)
+
+    /// Token totals for the turn that is running, or the one that just finished.
+    public func liveGeneration() -> LiveGeneration? {
+        liveGenerationLock.withLock { $0 }
+    }
 
     /// The effort the window selected. Tests leave this `.disabled`.
     public var requestedReasoningEffort: ReasoningEffort = .disabled
@@ -164,6 +172,16 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
             session.agentID = id
             try? store.updateSession(session)
         }
+    }
+
+    public func revertLastUserTurn() async -> Bool {
+        guard (try? store.revertLastUserTurn(sessionID: sessionID)) == true else { return false }
+        if var session = try? store.session(id: sessionID) {
+            session.modelMessageCursor = (try? store.messages(sessionID: sessionID).count) ?? session.modelMessageCursor
+            try? store.updateSession(session)
+            activeModel().reset(epochID: session.epochID)
+        }
+        return true
     }
 
     public func admitSteerDuringSettle(_ text: String) throws {
@@ -294,10 +312,19 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                 for call in assistant.toolCalls {
                     if isCancelRequested() { break }
                     let result = await settleCall(call: call, materialized: materialized, session: session)
-                    try? store.appendMessage(
-                        sessionID: sessionID,
-                        message: .toolResult(id: call.id, name: call.name, text: result)
-                    )
+                    if call.name == "bash" {
+                        try? store.upsertToolResult(
+                            sessionID: sessionID,
+                            callID: call.id,
+                            name: call.name,
+                            text: result
+                        )
+                    } else {
+                        try? store.appendMessage(
+                            sessionID: sessionID,
+                            message: .toolResult(id: call.id, name: call.name, text: result)
+                        )
+                    }
                 }
                 session = (try? store.session(id: sessionID)) ?? session
                 if await promoteSteerAtBoundary(session: &session) {
@@ -472,6 +499,16 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         materialized: MaterializedTools,
         session: SessionRecord
     ) async -> String {
+        if call.name == QuestionTool.definition.name, materialized.allowedNames.contains(call.name) {
+            guard let question = QuestionTool.questionText(from: call.arguments) else {
+                return "Error: missing question"
+            }
+            return await QuestionTool.Broker.shared.register(
+                sessionID: sessionID,
+                callID: call.id,
+                question: question
+            )
+        }
         if call.name == TodoTool.definition.name, materialized.allowedNames.contains(call.name) {
             guard let items = TodoTool.parse(call.arguments) else {
                 return "todowrite needs todos: a list of {content, status}."
@@ -509,9 +546,58 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         }
 
         if materialized.allowedNames.contains(call.name) {
-            return await executeApproved(call: call, materialized: materialized)
+            return await executeApproved(call: call, materialized: materialized, session: session)
         }
         return materialized.settle(call: call)
+    }
+
+    private func executeMCP(call: ToolCall, session: SessionRecord) async -> String {
+        let action = (stringField(call.arguments, key: "action") ?? "list").lowercased()
+        switch action {
+        case "list":
+            let entries = MCPTool.read(mcpConfigURL)
+            if entries.isEmpty { return "No MCP servers installed." }
+            return entries.map { "\($0.name) enabled=\($0.enabled)" }.joined(separator: "\n")
+        case "remove":
+            guard let name = stringField(call.arguments, key: "name"), !name.isEmpty else {
+                return "Error: missing name"
+            }
+            do {
+                _ = try MCPTool.remove(name: name, at: mcpConfigURL)
+            } catch {
+                return "Error: \(error)"
+            }
+            MCPHub.shared.disconnect(serverName: name)
+            return "Removed MCP server \(name)."
+        case "install":
+            let requested = stringField(call.arguments, key: "name") ?? ""
+            let name = requested.isEmpty ? "duckduckgo" : requested
+            do {
+                let config = try MCPTool.config(
+                    name: name,
+                    command: stringField(call.arguments, key: "command"),
+                    args: MCPTool.stringArgs(call.arguments),
+                    url: stringField(call.arguments, key: "url")
+                )
+                _ = try MCPTool.install(
+                    name: name,
+                    command: stringField(call.arguments, key: "command"),
+                    args: MCPTool.stringArgs(call.arguments),
+                    url: stringField(call.arguments, key: "url"),
+                    at: mcpConfigURL
+                )
+                do {
+                    try await MCPHub.shared.connect(config: config, projectPath: session.projectPath)
+                    return "Installed MCP server \(name) and connected it. Its tools are available on the next turn."
+                } catch {
+                    return "Installed MCP server \(name). Connection failed: \(error). The entry is saved and can be connected again."
+                }
+            } catch {
+                return "Error: \(error)"
+            }
+        default:
+            return "Error: action must be install, list, or remove"
+        }
     }
 
     public func mcpConnect(_ config: MCPServerConfig) async throws {
@@ -589,7 +675,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
 
         switch reply {
         case .once:
-            return await executeApproved(call: call, materialized: materialized)
+            return await executeApproved(call: call, materialized: materialized, session: session)
         case .always:
             for resource in resources {
                 try? store.insertPermissionRule(
@@ -597,13 +683,23 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                     rule: PermissionRule(action: action, resource: resource, effect: .allow)
                 )
             }
-            return await executeApproved(call: call, materialized: materialized)
+            return await executeApproved(call: call, materialized: materialized, session: session)
         case .reject:
             return PermissionGate.denialMessage
         }
     }
 
-    private func executeApproved(call: ToolCall, materialized: MaterializedTools) async -> String {
+    private func executeApproved(
+        call: ToolCall,
+        materialized: MaterializedTools,
+        session: SessionRecord
+    ) async -> String {
+        if call.name == "bash" {
+            return await executeBashStreaming(call: call, materialized: materialized, session: session)
+        }
+        if call.name == MCPTool.definition.name {
+            return await executeMCP(call: call, session: session)
+        }
         if call.name == "read_resource" {
             guard let uri = stringField(call.arguments, key: "uri") else {
                 return "Error: missing uri"
@@ -621,6 +717,48 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         return materialized.executeAfterApproval(call: call)
     }
 
+    private func executeBashStreaming(
+        call: ToolCall,
+        materialized: MaterializedTools,
+        session: SessionRecord
+    ) async -> String {
+        guard let command = stringField(call.arguments, key: "command") else {
+            return "Error: missing command"
+        }
+        let timeout = {
+            guard case .object(let object) = call.arguments else { return nil as Double? }
+            switch object["timeout"] {
+            case .number(let value): return value
+            case .string(let text): return Double(text)
+            default: return nil
+            }
+        }()
+        let root = ProjectPaths.projectRootURL(path: session.projectPath).path
+        let accumulated = OSAllocatedUnfairLock(initialState: "Ran: \(command)\n")
+        try? store.upsertToolResult(
+            sessionID: sessionID,
+            callID: call.id,
+            name: call.name,
+            text: accumulated.withLock { $0 }
+        )
+        let body = BashRunner.run(
+            command: command,
+            workingDirectory: root,
+            timeoutSeconds: timeout
+        ) { chunk in
+            let text = accumulated.withLock { state -> String in
+                state += chunk
+                return state
+            }
+            try? self.store.updateToolResultText(
+                sessionID: self.sessionID,
+                toolCallID: call.id,
+                text: text
+            )
+        }
+        return ToolOutput.project(raw: body, sessionID: materialized.sessionID, callID: call.id)
+    }
+
     private func executeTask(call: ToolCall, materialized: MaterializedTools) async -> String {
         guard let agentID = stringField(call.arguments, key: "agent"),
               let prompt = stringField(call.arguments, key: "prompt") else {
@@ -634,6 +772,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         }
         let result = await SubagentRunner.run(
             parentSessionID: sessionID,
+            parentToolCallID: call.id,
             store: store,
             model: activeModel(),
             agentID: agentID,
@@ -652,6 +791,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         var reasoning = ""
         var finished: AssistantTurn?
         var assistantStarted = false
+        liveGenerationLock.withLock { $0 = nil }
 
         do {
             try await ModelTurnCoordinator.shared.withTurn {
@@ -671,6 +811,22 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                         }
                     case .reasoning(let chunk):
                         reasoning += chunk
+                        let message = StoredMessage(role: .assistant, text: text, reasoning: reasoning)
+                        if assistantStarted {
+                            try? store.replaceLastAssistant(sessionID: sessionID, message: message)
+                        } else {
+                            try? store.appendMessage(sessionID: sessionID, message: message)
+                            assistantStarted = true
+                        }
+                    case .usage(let input, let cached, let output, let duration):
+                        liveGenerationLock.withLock {
+                            $0 = LiveGeneration(
+                                inputTokens: input,
+                                cachedTokens: cached,
+                                outputTokens: output,
+                                duration: duration
+                            )
+                        }
                     case .finished(let turn):
                         finished = turn
                     }
@@ -765,6 +921,14 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
         )
 
         activeModel().reset(epochID: newEpochID)
+        try? store.appendMessage(
+            sessionID: sessionID,
+            message: .system("Earlier context was summarized."),
+            epochID: newEpochID
+        )
+        try? store.appendHarnessEvent(
+            HarnessEventRecord(sessionID: sessionID, name: "compaction.applied", permissionRequestID: nil)
+        )
         return true
     }
 
@@ -778,7 +942,7 @@ public final class SessionRunner: HarnessClient, @unchecked Sendable {
                     switch event {
                     case .text(let chunk):
                         text += chunk
-                    case .reasoning:
+                    case .reasoning, .usage:
                         break
                     case .finished(let turn):
                         finished = turn

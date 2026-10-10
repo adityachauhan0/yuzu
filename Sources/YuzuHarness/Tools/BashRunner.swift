@@ -3,7 +3,12 @@ import Foundation
 enum BashRunner {
     static let defaultTimeoutSeconds: TimeInterval = 120
 
-    static func run(command: String, workingDirectory: String, timeoutSeconds: TimeInterval?) -> String {
+    static func run(
+        command: String,
+        workingDirectory: String,
+        timeoutSeconds: TimeInterval?,
+        onOutput: (@Sendable (String) -> Void)? = nil
+    ) -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = ["-c", command]
@@ -26,8 +31,8 @@ enum BashRunner {
         }
 
         // Drain both pipes while the command runs; a full pipe buffer blocks the child.
-        let stdoutData = PipeDrain(stdoutPipe.fileHandleForReading)
-        let stderrData = PipeDrain(stderrPipe.fileHandleForReading)
+        let stdoutData = PipeDrain(stdoutPipe.fileHandleForReading, onChunk: onOutput)
+        let stderrData = PipeDrain(stderrPipe.fileHandleForReading, onChunk: onOutput)
 
         let limit = timeoutSeconds ?? defaultTimeoutSeconds
         if exited.wait(timeout: .now() + limit) == .timedOut {
@@ -56,8 +61,11 @@ private final class PipeDrain: @unchecked Sendable {
     private let done = DispatchSemaphore(value: 0)
     private var data = Data()
 
-    init(_ handle: FileHandle) {
+    private let onChunk: (@Sendable (String) -> Void)?
+
+    init(_ handle: FileHandle, onChunk: (@Sendable (String) -> Void)? = nil) {
         self.handle = handle
+        self.onChunk = onChunk
         handle.readabilityHandler = { [self] handle in
             let chunk = handle.availableData
             if chunk.isEmpty {
@@ -65,6 +73,9 @@ private final class PipeDrain: @unchecked Sendable {
                 done.signal()
             } else {
                 lock.withLock { data.append(chunk) }
+                if let onChunk, let text = String(data: chunk, encoding: .utf8), !text.isEmpty {
+                    onChunk(text)
+                }
             }
         }
     }

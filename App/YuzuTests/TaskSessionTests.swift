@@ -94,12 +94,17 @@ final class TaskSessionTests: XCTestCase {
             .assistant(AssistantTurn(text: "done")),
         ])
         XCTAssertEqual(items.count, 4)
-        guard case .activity(let first, let calls) = items[1], case .activity(let second, _) = items[2] else {
-            return XCTFail("Expected two activity lines, got \(items)")
+        guard case .tools(let grouped, let groupRows) = items[1], case .tools(let single, let readRows) = items[2] else {
+            return XCTFail("Expected two tool settlements, got \(items)")
         }
-        XCTAssertEqual(first, "Updated tasks, ran 2 commands")
-        XCTAssertEqual(calls.map(\.name), ["todowrite", "bash", "bash"])
-        XCTAssertEqual(second, "Used read")
-        XCTAssertEqual(items[3], .reply(text: "done", reasoning: ""))
+        XCTAssertEqual(grouped, ToolRowFormatter.groupLabel(toolCount: 3))
+        XCTAssertEqual(groupRows.map(\.call.name), ["todowrite", "bash", "bash"])
+        XCTAssertEqual(single, "Read a.txt")
+        XCTAssertEqual(readRows.count, 1)
+        XCTAssertEqual(readRows[0].presentation.detail, "a.txt")
+        guard case .reply(let done) = items[3] else {
+            return XCTFail("Expected reply")
+        }
+        XCTAssertEqual(done, "done")
     }
 }

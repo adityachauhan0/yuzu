@@ -115,10 +115,10 @@ struct SkillDialogView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                .foregroundStyle(colors.onAccent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                .background(colors.softText)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .accessibilityID("skill-create-submit")
             }

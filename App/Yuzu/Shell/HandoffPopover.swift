@@ -14,6 +14,7 @@ struct HandoffPopover<Content: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(colors.line, lineWidth: 1))
         .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
+        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
     }
 }
 

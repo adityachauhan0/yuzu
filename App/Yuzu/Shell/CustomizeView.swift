@@ -4,7 +4,6 @@ import YuzuHarness
 enum CustomizeTab: String, CaseIterable {
     case skills = "Skills"
     case connectors = "Connectors"
-    case plugins = "Plugins"
 }
 
 private enum SkillSourceFilter: String, CaseIterable {
@@ -27,6 +26,9 @@ struct CustomizeView: View {
     @State private var skillsReversed = false
     @State private var skillDialog: SkillDialogMode?
     @State private var skillsRefresh = 0
+    @State private var mcpName = ""
+    @State private var mcpCommand = ""
+    @State private var mcpArgs = ""
 
     private var skills: [SkillRecord] {
         _ = skillsRefresh
@@ -107,8 +109,6 @@ struct CustomizeView: View {
             skillsPanel
         case .connectors:
             connectorsPanel
-        case .plugins:
-            otherPanel(title: "Plugins", copy: "No plugins yet.")
         }
     }
 
@@ -182,10 +182,10 @@ struct CustomizeView: View {
                             .font(.system(size: 10))
                     }
                     .font(.system(size: 16))
-                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
+                    .foregroundStyle(colors.onAccent)
                     .padding(.horizontal, 12)
                     .frame(minWidth: 85, minHeight: 38)
-                    .background(Color(red: 0.94, green: 0.95, blue: 0.95))
+                    .background(colors.softText)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
@@ -319,17 +319,45 @@ struct CustomizeView: View {
                     connectorRow(line)
                 }
             }
-            Button("Add") {
-                model.openSettings(tab: .developer, anchor: .mcpConfig)
+            TextField("Server name", text: $mcpName)
+                .textFieldStyle(.plain)
+                .padding(8)
+                .background(colors.surface)
+                .foregroundStyle(colors.text)
+                .accessibilityID("mcp-add-name")
+            TextField("Command, or leave empty for DuckDuckGo", text: $mcpCommand)
+                .textFieldStyle(.plain)
+                .padding(8)
+                .background(colors.surface)
+                .foregroundStyle(colors.text)
+            TextField("Args, separated by spaces", text: $mcpArgs)
+                .textFieldStyle(.plain)
+                .padding(8)
+                .background(colors.surface)
+                .foregroundStyle(colors.text)
+            HStack(spacing: 10) {
+                Button("Add") {
+                    let args = mcpArgs.split(whereSeparator: \.isWhitespace).map(String.init)
+                    model.installMCPServer(name: mcpName, command: mcpCommand, args: args)
+                    mcpName = ""
+                    mcpCommand = ""
+                    mcpArgs = ""
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 14))
+                .foregroundStyle(colors.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(colors.surfaceHover)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .accessibilityID("connectors-add")
+                Button("Edit JSON") {
+                    model.openSettings(tab: .developer, anchor: .mcpConfig)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 14))
+                .foregroundStyle(colors.muted)
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 14))
-            .foregroundStyle(colors.text)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(colors.surfaceHover)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .accessibilityID("connectors-add")
         }
         .padding(.top, 33)
     }
@@ -356,12 +384,29 @@ struct CustomizeView: View {
                     .foregroundStyle(colors.dim)
             }
             Spacer(minLength: 0)
-            if status == "needs auth" {
+            if status == "connected" {
+                Button("Disconnect") {
+                    model.disconnectMCPServer(named: name)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.muted)
+            } else if status == "needs auth" {
                 Button("Sign in") { model.beginMCPSignIn(serverName: name) }
                     .buttonStyle(.plain)
                     .foregroundStyle(colors.text)
                     .accessibilityID("mcp-sign-in-\(name)")
+            } else if status != "disabled" {
+                Button("Connect") {
+                    Task { await model.connectMCPServer(named: name) }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.text)
             }
+            Button("Remove") {
+                model.removeMCPServer(named: name)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(colors.dim)
         }
         .padding(.vertical, 8)
         .accessibilityID("connector-row", label: "\(name), \(status)")

@@ -3,6 +3,7 @@ import Foundation
 enum SubagentRunner {
     static func run(
         parentSessionID: String,
+        parentToolCallID: String,
         store: HarnessStore,
         model: any ModelTurn,
         agentID: String,
@@ -30,6 +31,13 @@ enum SubagentRunner {
         )
         try? store.insertSession(childSession)
         try? store.setSessionParent(id: childID, parentID: parentSessionID)
+        try? store.appendHarnessEvent(
+            HarnessEventRecord(
+                sessionID: parentSessionID,
+                name: "task.child",
+                permissionRequestID: "\(parentToolCallID):\(childID)"
+            )
+        )
         try? store.appendMessage(sessionID: childID, message: .user(prompt))
 
         let childRunner = SessionRunner(sessionID: childID, store: store, model: model)

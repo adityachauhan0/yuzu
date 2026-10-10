@@ -8,6 +8,7 @@ struct CoworkHomeView: View {
     @State private var prompt = ""
     @State private var addMenuOpen = false
     @State private var modelMenuOpen = false
+    @State private var effortMenuOpen = false
     @State private var projectMenuOpen = false
     @State private var attachedFiles: [String] = []
 
@@ -29,6 +30,7 @@ struct CoworkHomeView: View {
         }
         .dismissesOnEscape($addMenuOpen)
         .dismissesOnEscape($modelMenuOpen)
+        .dismissesOnEscape($effortMenuOpen)
         .dismissesOnEscape($projectMenuOpen)
     }
 
@@ -105,10 +107,16 @@ struct CoworkHomeView: View {
                     .foregroundStyle(colors.text)
                     .accessibilityID("model-button")
 
-                    Text(model.coworkEffortLabel)
-                        .font(.system(size: 15))
-                        .foregroundStyle(colors.text)
-                        .accessibilityID("effort-label")
+                    Button {
+                        effortMenuOpen.toggle()
+                        modelMenuOpen = false
+                    } label: {
+                        Text(model.coworkEffortLabel)
+                            .font(.system(size: 15))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.text)
+                    .accessibilityID("effort-label")
 
                     Button(action: sendTask) {
                         Image(systemName: "arrow.up")
@@ -178,6 +186,11 @@ struct CoworkHomeView: View {
             if modelMenuOpen {
                 modelMenu
                     .padding(.top, 120)
+                    .padding(.trailing, 120)
+            }
+            if effortMenuOpen {
+                effortMenu
+                    .padding(.top, 120)
                     .padding(.trailing, 56)
             }
         }
@@ -208,14 +221,20 @@ struct CoworkHomeView: View {
 
     private var modelMenu: some View {
         HandoffPopover(colors: colors) {
-            HandoffMenuLabel(title: "Model and effort", colors: colors)
+            HandoffMenuLabel(title: "Model", colors: colors)
+            HandoffPopoverRow(title: model.modelDisplayName, colors: colors) {
+                modelMenuOpen = false
+            }
+        }
+    }
+
+    private var effortMenu: some View {
+        HandoffPopover(colors: colors) {
+            HandoffMenuLabel(title: "Effort", colors: colors)
             ForEach(["High", "Medium", "Low"], id: \.self) { effort in
-                HandoffPopoverRow(
-                    title: "\(model.modelDisplayName) · \(effort)",
-                    colors: colors
-                ) {
+                HandoffPopoverRow(title: effort, colors: colors) {
                     model.reasoningEffort = effortValue(effort)
-                    modelMenuOpen = false
+                    effortMenuOpen = false
                 }
                 .accessibilityIdentifier("cowork-effort-\(effort)")
             }

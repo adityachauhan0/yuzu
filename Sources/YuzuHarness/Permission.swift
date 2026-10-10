@@ -109,8 +109,14 @@ public enum PermissionGate {
             return "edit"
         case "bash":
             return "bash"
+        case "webfetch":
+            return "webfetch"
+        case "mcp":
+            return "mcp"
         case "skill":
             return "skill"
+        case "question":
+            return nil
         case "task":
             return "task"
         case "read_resource":
@@ -129,6 +135,10 @@ public enum PermissionGate {
             return [stringField(arguments, key: "path") ?? "*"]
         case "bash":
             return [stringField(arguments, key: "command") ?? "*"]
+        case "webfetch":
+            return [stringField(arguments, key: "url") ?? "*"]
+        case "mcp":
+            return [stringField(arguments, key: "name") ?? "*"]
         case "skill":
             return [stringField(arguments, key: "name") ?? "*"]
         case "task":
@@ -171,6 +181,12 @@ public struct HarnessEventRecord: Sendable, Equatable {
     public var sessionID: String
     public var name: String
     public var permissionRequestID: String?
+
+    public init(sessionID: String, name: String, permissionRequestID: String?) {
+        self.sessionID = sessionID
+        self.name = name
+        self.permissionRequestID = permissionRequestID
+    }
 }
 
 func stringField(_ value: JSONValue, key: String) -> String? {

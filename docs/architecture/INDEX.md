@@ -20,6 +20,8 @@ The shape comes from [OpenCode](https://github.com/anomalyco/opencode) (`anomaly
 12. [Build order](11-build-order.md) — how the complete harness is sliced into working apps
 13. [Implementation](13-implementation.md) — file layout, interfaces, and the evals a slice must pass
 14. [Uzu Qwen bottleneck](14-uzu-qwen-bottleneck.md) — why a Mirai Qwen turn hit chat-template line 87, and the fix
+15. [OpenCode V1 map](15-opencode-v1-map.md) — what OpenCode has, what the engine already does, and what the window still lacks
+16. [V1 implementation](16-v1-implementation.md) — the work to make that map true, and the evals that prove it
 
 ## Module map
 

@@ -19,6 +19,7 @@ struct CodeHomeView: View {
     @State private var prompt = ""
     @State private var usageTab: CodeUsageTab = .overview
     @State private var modelMenuOpen = false
+    @State private var effortMenuOpen = false
     @State private var addMenuOpen = false
     @State private var attachments: [String] = []
 
@@ -341,7 +342,7 @@ struct CodeHomeView: View {
                 } label: {
                     Text("Manual")
                         .font(.system(size: 14))
-                        .foregroundStyle(Color(red: 0.89, green: 0.67, blue: 0.02))
+                        .foregroundStyle(colors.accent)
                         .padding(.horizontal, 4)
                         .background(model.manualPressed ? colors.selected.opacity(0.5) : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -370,7 +371,8 @@ struct CodeHomeView: View {
                 }
 
                 Button {
-                    modelMenuOpen.toggle()
+                    effortMenuOpen.toggle()
+                    modelMenuOpen = false
                 } label: {
                     Text(model.coworkEffortLabel)
                         .font(.system(size: 14))
@@ -417,20 +419,28 @@ struct CodeHomeView: View {
         .overlay(alignment: .bottomTrailing) {
             if modelMenuOpen {
                 HandoffPopover(colors: colors) {
-                    HandoffMenuLabel(title: "Model and effort", colors: colors)
+                    HandoffMenuLabel(title: "Model", colors: colors)
+                    HandoffPopoverRow(title: model.modelDisplayName, colors: colors) {
+                        modelMenuOpen = false
+                    }
+                }
+                .padding(.bottom, 36)
+                .padding(.trailing, 80)
+            }
+            if effortMenuOpen {
+                HandoffPopover(colors: colors) {
+                    HandoffMenuLabel(title: "Effort", colors: colors)
                     ForEach(["High", "Medium", "Low"], id: \.self) { effort in
-                        HandoffPopoverRow(
-                            title: "\(model.modelDisplayName) · \(effort)",
-                            colors: colors
-                        ) {
+                        HandoffPopoverRow(title: effort, colors: colors) {
                             model.reasoningEffort = ReasoningEffort.fromLabel(effort)
-                            modelMenuOpen = false
+                            effortMenuOpen = false
                         }
                     }
                 }
                 .padding(.bottom, 36)
             }
         }
+        .dismissesOnEscape($effortMenuOpen)
     }
 
     private var promptReady: Bool {

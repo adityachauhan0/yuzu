@@ -141,6 +141,21 @@ enum BuiltinTools {
         ])
     )
 
+    static let webfetch = ToolDefinition(
+        name: "webfetch",
+        description: "Fetch one URL and return the page text.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "url": .object([
+                    "type": .string("string"),
+                    "description": .string("HTTP or HTTPS URL"),
+                ]),
+            ]),
+            "required": .array([.string("url")]),
+        ])
+    )
+
     static let grep = ToolDefinition(
         name: "grep",
         description: "Search file contents inside the project.",
@@ -176,9 +191,43 @@ enum BuiltinTools {
             return executeBash(arguments: arguments, projectPath: projectPath)
         case "skill":
             return executeSkill(arguments: arguments, projectPath: projectPath)
+        case "webfetch":
+            return executeWebFetch(arguments: arguments)
         default:
             return "Unknown tool"
         }
+    }
+
+    static func executeWebFetch(arguments: JSONValue) -> String {
+        guard let urlText = stringArg(arguments, key: "url"),
+              let url = URL(string: urlText),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
+            return "Error: missing or invalid url"
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var payload = Data()
+        var fetchError: Error?
+        let task = URLSession.shared.dataTask(with: url) { data, _, error in
+            if let error {
+                fetchError = error
+            } else if let data {
+                payload = data
+            }
+            semaphore.signal()
+        }
+        task.resume()
+        if semaphore.wait(timeout: .now() + 30) == .timedOut {
+            task.cancel()
+            return "Error: request timed out"
+        }
+        if let fetchError {
+            return "Error: \(fetchError.localizedDescription)"
+        }
+        if let text = String(data: payload, encoding: .utf8) {
+            return text
+        }
+        return "Error: response is not valid UTF-8 text"
     }
 
     private static func executeWrite(arguments: JSONValue, projectPath: String) -> String {

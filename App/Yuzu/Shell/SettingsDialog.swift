@@ -65,7 +65,7 @@ struct SettingsDialog: View {
     private static let groups: [(label: String, tabs: [SettingsTab])] = [
         ("Settings", [.general, .privacy, .usage, .code, .cowork, .importExport]),
         ("This computer", [.system, .developer]),
-        ("Customize", [.skills, .connectors, .plugins]),
+        ("Customize", [.skills, .connectors]),
     ]
 
     private func settingsSidebar(stacked: Bool) -> some View {
@@ -165,7 +165,6 @@ struct SettingsDialog: View {
         case .developer: "wrench"
         case .skills: "puzzlepiece.extension"
         case .connectors: "slider.horizontal.3"
-        case .plugins: "powerplug"
         }
     }
 
@@ -185,7 +184,6 @@ struct SettingsDialog: View {
                     case .developer: developerPanel
                     case .skills: CustomizeView(colors: colors, embeddedTab: .skills)
                     case .connectors: CustomizeView(colors: colors, embeddedTab: .connectors)
-                    case .plugins: CustomizeView(colors: colors, embeddedTab: .plugins)
                     }
                 }
                 .padding(24)
@@ -254,12 +252,19 @@ struct SettingsDialog: View {
             Text("Motion")
                 .foregroundStyle(colors.muted)
             segment(options: ["System", "Reduced"], selection: $model.motionSetting)
-            Toggle("Response completions", isOn: Binding(
-                get: { model.responseCompletions },
-                set: { model.setResponseCompletions($0) }
-            ))
-            .toggleStyle(.switch)
-            .foregroundStyle(colors.text)
+            HStack {
+                Text("Response completions")
+                    .foregroundStyle(colors.text)
+                Spacer()
+                YuzuSwitch(
+                    colors: colors,
+                    isOn: Binding(
+                        get: { model.responseCompletions },
+                        set: { model.setResponseCompletions($0) }
+                    ),
+                    accessibilityID: "response-completions-switch"
+                )
+            }
         }
     }
 
@@ -430,12 +435,19 @@ struct SettingsDialog: View {
                 .onChange(of: model.coworkInstructions) { _, _ in
                     model.saveInstructions()
                 }
-            Toggle("Memory", isOn: Binding(
-                get: { model.memoryEnabled },
-                set: { model.setMemoryEnabled($0) }
-            ))
-            .toggleStyle(.switch)
-            .foregroundStyle(colors.text)
+            HStack {
+                Text("Memory")
+                    .foregroundStyle(colors.text)
+                Spacer()
+                YuzuSwitch(
+                    colors: colors,
+                    isOn: Binding(
+                        get: { model.memoryEnabled },
+                        set: { model.setMemoryEnabled($0) }
+                    ),
+                    accessibilityID: "memory-switch"
+                )
+            }
             callout("Yuzu saves memories on this device.")
             if model.memories.isEmpty {
                 callout("No memories yet. Yuzu will add entries here as you work together.")

@@ -512,6 +512,80 @@ public final class HarnessStore: Sendable {
         }
     }
 
+    public func updateToolResultText(sessionID: String, toolCallID: String, text: String) throws -> Bool {
+        try dbQueue.write { db in
+            let exists = try Int.fetchOne(
+                db,
+                sql: """
+                SELECT COUNT(*) FROM messages
+                WHERE session_id = ? AND role = 'tool' AND tool_call_id = ?
+                """,
+                arguments: [sessionID, toolCallID]
+            ) ?? 0
+            guard exists > 0 else { return false }
+            try db.execute(
+                sql: """
+                UPDATE messages SET text = ?
+                WHERE session_id = ? AND role = 'tool' AND tool_call_id = ?
+                """,
+                arguments: [text, sessionID, toolCallID]
+            )
+            return true
+        }
+    }
+
+    public func upsertToolResult(sessionID: String, callID: String, name: String, text: String) throws {
+        if try updateToolResultText(sessionID: sessionID, toolCallID: callID, text: text) {
+            return
+        }
+        try appendMessage(
+            sessionID: sessionID,
+            message: .toolResult(id: callID, name: name, text: text)
+        )
+    }
+
+    /// Drops the last user message and every message after it; rewinds the model cursor.
+    public func revertLastUserTurn(sessionID: String) throws -> Bool {
+        try dbQueue.write { db in
+            guard let ordinal = try Int.fetchOne(
+                db,
+                sql: """
+                SELECT ordinal FROM messages
+                WHERE session_id = ? AND role = 'user'
+                ORDER BY ordinal DESC LIMIT 1
+                """,
+                arguments: [sessionID]
+            ) else {
+                return false
+            }
+            try db.execute(
+                sql: "DELETE FROM messages WHERE session_id = ? AND ordinal >= ?",
+                arguments: [sessionID, ordinal]
+            )
+            let remaining = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM messages WHERE session_id = ?",
+                arguments: [sessionID]
+            ) ?? 0
+            try db.execute(
+                sql: "UPDATE sessions SET model_message_cursor = ? WHERE id = ?",
+                arguments: [remaining, sessionID]
+            )
+            return true
+        }
+    }
+
+    public func taskChildSessionID(parentSessionID: String, toolCallID: String) throws -> String? {
+        let events = try harnessEvents(sessionID: parentSessionID)
+        let prefix = "\(toolCallID):"
+        guard let match = events.last(where: { event in
+            event.name == "task.child" && (event.permissionRequestID?.hasPrefix(prefix) ?? false)
+        }) else {
+            return nil
+        }
+        return match.permissionRequestID.map { String($0.dropFirst(prefix.count)) }
+    }
+
     public func appendMessage(sessionID: String, message: StoredMessage, epochID: String? = nil) throws {
         try dbQueue.write { db in
             let ordinal = try Int.fetchOne(
